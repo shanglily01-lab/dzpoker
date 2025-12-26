@@ -1,0 +1,368 @@
+"""德州扑克核心逻辑"""
+import random
+from typing import List, Dict, Optional, Tuple
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class Suit(Enum):
+    """花色"""
+    SPADE = 0    # 黑桃
+    HEART = 1    # 红心
+    DIAMOND = 2  # 方块
+    CLUB = 3     # 梅花
+
+
+SUIT_SYMBOLS = ['♠', '♥', '♦', '♣']
+RANK_SYMBOLS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
+
+
+@dataclass
+class Card:
+    """扑克牌"""
+    suit: int  # 0-3
+    rank: int  # 0-12 (2-A)
+
+    def __str__(self) -> str:
+        return f"{RANK_SYMBOLS[self.rank]}{SUIT_SYMBOLS[self.suit]}"
+
+    def to_dict(self) -> dict:
+        return {
+            "suit": self.suit,
+            "rank": self.rank,
+            "display": str(self)
+        }
+
+    @property
+    def value(self) -> int:
+        """牌面值 (2-14)"""
+        return self.rank + 2
+
+
+class Deck:
+    """牌堆"""
+
+    def __init__(self):
+        self.cards: List[Card] = []
+        self.reset()
+
+    def reset(self):
+        """重置牌堆"""
+        self.cards = [
+            Card(suit, rank)
+            for suit in range(4)
+            for rank in range(13)
+        ]
+
+    def shuffle(self):
+        """洗牌"""
+        random.shuffle(self.cards)
+
+    def deal(self, n: int = 1) -> List[Card]:
+        """发牌"""
+        if len(self.cards) < n:
+            raise ValueError("牌堆牌数不足")
+        dealt = self.cards[:n]
+        self.cards = self.cards[n:]
+        return dealt
+
+    def burn(self):
+        """烧牌"""
+        if self.cards:
+            self.cards.pop(0)
+
+
+@dataclass
+class PlayerState:
+    """玩家状态"""
+    player_id: int
+    position: int
+    chips: float
+    hole_cards: List[Card] = field(default_factory=list)
+    current_bet: float = 0
+    total_bet: float = 0
+    is_active: bool = True
+    is_all_in: bool = False
+    has_acted: bool = False
+
+
+class GameState(Enum):
+    """游戏状态"""
+    WAITING = "waiting"
+    PREFLOP = "preflop"
+    FLOP = "flop"
+    TURN = "turn"
+    RIVER = "river"
+    SHOWDOWN = "showdown"
+    FINISHED = "finished"
+
+
+@dataclass
+class PokerGame:
+    """德州扑克游戏"""
+    game_id: str
+    small_blind: float = 1.0
+    big_blind: float = 2.0
+    deck: Deck = field(default_factory=Deck)
+    players: List[PlayerState] = field(default_factory=list)
+    community_cards: List[Card] = field(default_factory=list)
+    pot: float = 0
+    current_bet: float = 0
+    current_player_idx: int = 0
+    dealer_idx: int = 0
+    state: GameState = GameState.WAITING
+
+    def add_player(self, player_id: int, chips: float = 1000) -> PlayerState:
+        """添加玩家"""
+        position = len(self.players)
+        player = PlayerState(
+            player_id=player_id,
+            position=position,
+            chips=chips
+        )
+        self.players.append(player)
+        return player
+
+    def start_hand(self):
+        """开始一手牌"""
+        if len(self.players) < 2:
+            raise ValueError("至少需要2名玩家")
+
+        # 重置状态
+        self.deck.reset()
+        self.deck.shuffle()
+        self.community_cards = []
+        self.pot = 0
+        self.current_bet = 0
+
+        # 重置玩家状态
+        for player in self.players:
+            player.hole_cards = []
+            player.current_bet = 0
+            player.total_bet = 0
+            player.is_active = True
+            player.is_all_in = False
+            player.has_acted = False
+
+        # 发底牌
+        for player in self.players:
+            player.hole_cards = self.deck.deal(2)
+
+        # 收取盲注
+        self._post_blinds()
+        self.state = GameState.PREFLOP
+
+    def _post_blinds(self):
+        """收取盲注"""
+        sb_idx = (self.dealer_idx + 1) % len(self.players)
+        bb_idx = (self.dealer_idx + 2) % len(self.players)
+
+        # 小盲注
+        sb_player = self.players[sb_idx]
+        sb_amount = min(self.small_blind, sb_player.chips)
+        sb_player.chips -= sb_amount
+        sb_player.current_bet = sb_amount
+        sb_player.total_bet = sb_amount
+        self.pot += sb_amount
+
+        # 大盲注
+        bb_player = self.players[bb_idx]
+        bb_amount = min(self.big_blind, bb_player.chips)
+        bb_player.chips -= bb_amount
+        bb_player.current_bet = bb_amount
+        bb_player.total_bet = bb_amount
+        self.pot += bb_amount
+
+        self.current_bet = self.big_blind
+        # 从大盲注后一位开始行动
+        self.current_player_idx = (bb_idx + 1) % len(self.players)
+
+    def deal_flop(self) -> List[Card]:
+        """发翻牌"""
+        if self.state != GameState.PREFLOP:
+            raise ValueError("当前不是翻牌前阶段")
+
+        self.deck.burn()
+        flop = self.deck.deal(3)
+        self.community_cards.extend(flop)
+        self.state = GameState.FLOP
+        self._reset_betting_round()
+        return flop
+
+    def deal_turn(self) -> Card:
+        """发转牌"""
+        if self.state != GameState.FLOP:
+            raise ValueError("当前不是翻牌阶段")
+
+        self.deck.burn()
+        turn = self.deck.deal(1)[0]
+        self.community_cards.append(turn)
+        self.state = GameState.TURN
+        self._reset_betting_round()
+        return turn
+
+    def deal_river(self) -> Card:
+        """发河牌"""
+        if self.state != GameState.TURN:
+            raise ValueError("当前不是转牌阶段")
+
+        self.deck.burn()
+        river = self.deck.deal(1)[0]
+        self.community_cards.append(river)
+        self.state = GameState.RIVER
+        self._reset_betting_round()
+        return river
+
+    def _reset_betting_round(self):
+        """重置下注轮"""
+        self.current_bet = 0
+        for player in self.players:
+            player.current_bet = 0
+            player.has_acted = False
+
+        # 从庄家后第一个活跃玩家开始
+        self.current_player_idx = (self.dealer_idx + 1) % len(self.players)
+        while not self.players[self.current_player_idx].is_active:
+            self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
+
+    def player_action(self, player_id: int, action: str, amount: float = 0) -> dict:
+        """处理玩家动作"""
+        player = self._get_player(player_id)
+        if not player:
+            raise ValueError("玩家不存在")
+
+        if player.position != self.current_player_idx:
+            raise ValueError("还没轮到该玩家行动")
+
+        result = {"action": action, "amount": 0}
+
+        if action == "fold":
+            player.is_active = False
+
+        elif action == "check":
+            if player.current_bet < self.current_bet:
+                raise ValueError("必须跟注或弃牌")
+
+        elif action == "call":
+            call_amount = self.current_bet - player.current_bet
+            actual_amount = min(call_amount, player.chips)
+            player.chips -= actual_amount
+            player.current_bet += actual_amount
+            player.total_bet += actual_amount
+            self.pot += actual_amount
+            result["amount"] = actual_amount
+
+            if player.chips == 0:
+                player.is_all_in = True
+
+        elif action == "raise":
+            if amount <= self.current_bet:
+                raise ValueError("加注金额必须大于当前下注")
+
+            raise_amount = amount - player.current_bet
+            if raise_amount > player.chips:
+                raise ValueError("筹码不足")
+
+            player.chips -= raise_amount
+            player.current_bet = amount
+            player.total_bet += raise_amount
+            self.pot += raise_amount
+            self.current_bet = amount
+            result["amount"] = raise_amount
+
+            # 重置其他玩家的行动状态
+            for p in self.players:
+                if p.player_id != player_id and p.is_active:
+                    p.has_acted = False
+
+        elif action == "all_in":
+            all_in_amount = player.chips
+            player.current_bet += all_in_amount
+            player.total_bet += all_in_amount
+            self.pot += all_in_amount
+            player.chips = 0
+            player.is_all_in = True
+            result["amount"] = all_in_amount
+
+            if player.current_bet > self.current_bet:
+                self.current_bet = player.current_bet
+                for p in self.players:
+                    if p.player_id != player_id and p.is_active:
+                        p.has_acted = False
+
+        player.has_acted = True
+        self._next_player()
+
+        return result
+
+    def _get_player(self, player_id: int) -> Optional[PlayerState]:
+        """获取玩家"""
+        for player in self.players:
+            if player.player_id == player_id:
+                return player
+        return None
+
+    def _next_player(self):
+        """移动到下一个玩家"""
+        for _ in range(len(self.players)):
+            self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
+            player = self.players[self.current_player_idx]
+            if player.is_active and not player.is_all_in and not player.has_acted:
+                return
+
+        # 检查是否进入下一阶段
+        if self._is_betting_round_complete():
+            self._advance_state()
+
+    def _is_betting_round_complete(self) -> bool:
+        """检查下注轮是否结束"""
+        active_players = [p for p in self.players if p.is_active and not p.is_all_in]
+
+        if len(active_players) <= 1:
+            return True
+
+        for player in active_players:
+            if not player.has_acted:
+                return False
+            if player.current_bet < self.current_bet:
+                return False
+
+        return True
+
+    def _advance_state(self):
+        """推进游戏状态"""
+        active_count = sum(1 for p in self.players if p.is_active)
+
+        if active_count <= 1:
+            self.state = GameState.FINISHED
+        elif self.state == GameState.PREFLOP:
+            self.deal_flop()
+        elif self.state == GameState.FLOP:
+            self.deal_turn()
+        elif self.state == GameState.TURN:
+            self.deal_river()
+        elif self.state == GameState.RIVER:
+            self.state = GameState.SHOWDOWN
+
+    def get_state(self) -> dict:
+        """获取游戏状态"""
+        return {
+            "game_id": self.game_id,
+            "state": self.state.value,
+            "pot": self.pot,
+            "current_bet": self.current_bet,
+            "current_player": self.current_player_idx,
+            "dealer": self.dealer_idx,
+            "community_cards": [c.to_dict() for c in self.community_cards],
+            "players": [
+                {
+                    "player_id": p.player_id,
+                    "position": p.position,
+                    "chips": p.chips,
+                    "current_bet": p.current_bet,
+                    "is_active": p.is_active,
+                    "is_all_in": p.is_all_in
+                }
+                for p in self.players
+            ]
+        }
