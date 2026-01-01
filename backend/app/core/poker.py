@@ -344,6 +344,116 @@ class PokerGame:
         elif self.state == GameState.RIVER:
             self.state = GameState.SHOWDOWN
 
+    def showdown(self) -> dict:
+        """
+        摊牌阶段 - 评估所有手牌并确定获胜者
+
+        Returns:
+            包含获胜者信息和手牌评估结果的字典
+        """
+        if self.state != GameState.SHOWDOWN:
+            raise ValueError("当前不是摊牌阶段")
+
+        from .hand_evaluator import HandEvaluator
+
+        # 评估所有未弃牌玩家的手牌
+        player_hands = []
+        for player in self.players:
+            if player.is_active or player.is_all_in:
+                hand_rank, hand_values = HandEvaluator.evaluate_hand(
+                    player.hole_cards,
+                    self.community_cards
+                )
+                hand_description = HandEvaluator.hand_to_string(hand_rank, hand_values)
+
+                player_hands.append({
+                    "player": player,
+                    "rank": hand_rank,
+                    "values": hand_values,
+                    "description": hand_description
+                })
+
+        if not player_hands:
+            raise ValueError("没有玩家参与摊牌")
+
+        # 找出获胜者（可能有多个平局）
+        player_hands.sort(
+            key=lambda x: (x["rank"], x["values"]),
+            reverse=True
+        )
+
+        winners = [player_hands[0]]
+        best_rank = player_hands[0]["rank"]
+        best_values = player_hands[0]["values"]
+
+        # 检查是否有平局
+        for hand_info in player_hands[1:]:
+            result = HandEvaluator.compare_hands(
+                (hand_info["rank"], hand_info["values"]),
+                (best_rank, best_values)
+            )
+            if result == 0:  # 平局
+                winners.append(hand_info)
+            else:
+                break  # 已经排序，后面的都更小
+
+        # 分配奖池
+        winnings = self._distribute_pot([w["player"] for w in winners])
+
+        # 更新游戏状态
+        self.state = GameState.FINISHED
+
+        # 返回结果
+        return {
+            "winners": [
+                {
+                    "player_id": w["player"].player_id,
+                    "hand_description": w["description"],
+                    "hand_rank": w["rank"].name,
+                    "hole_cards": [c.to_dict() for c in w["player"].hole_cards],
+                    "winnings": winnings[w["player"].player_id]
+                }
+                for w in winners
+            ],
+            "all_hands": [
+                {
+                    "player_id": h["player"].player_id,
+                    "hand_description": h["description"],
+                    "hand_rank": h["rank"].name,
+                    "hole_cards": [c.to_dict() for c in h["player"].hole_cards]
+                }
+                for h in player_hands
+            ],
+            "pot": self.pot
+        }
+
+    def _distribute_pot(self, winners: List[PlayerState]) -> Dict[int, float]:
+        """
+        分配奖池给获胜者
+
+        Args:
+            winners: 获胜玩家列表
+
+        Returns:
+            每个获胜者获得的奖金字典 {player_id: amount}
+        """
+        winnings = {winner.player_id: 0.0 for winner in winners}
+
+        if not winners:
+            return winnings
+
+        # 简单平分（后续可以实现边池逻辑）
+        share = self.pot / len(winners)
+
+        for winner in winners:
+            winner.chips += share
+            winnings[winner.player_id] = share
+
+        # 清空奖池
+        self.pot = 0
+
+        return winnings
+
     def get_state(self) -> dict:
         """获取游戏状态"""
         return {

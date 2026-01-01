@@ -276,6 +276,28 @@ async def player_action(game_id: str, action: PlayerActionRequest):
     return response
 
 
+@router.post("/{game_id}/showdown")
+async def showdown(game_id: str):
+    """执行摊牌并确定获胜者"""
+    if game_id not in games:
+        raise HTTPException(status_code=404, detail="游戏不存在")
+
+    game = games[game_id]
+
+    try:
+        result = game.showdown()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # 广播摊牌结果
+    await ws_manager.broadcast(game_id, {
+        "type": "showdown",
+        "data": result
+    })
+
+    return result
+
+
 @router.websocket("/ws/{game_id}")
 async def game_websocket(websocket: WebSocket, game_id: str):
     """游戏WebSocket连接"""
