@@ -321,6 +321,62 @@ sudo systemctl restart sshd
 
 ## 🐛 故障排查
 
+### 问题0: Docker安装时依赖冲突 ⚠️ 常见问题
+
+**错误信息:**
+```
+Error:
+ Problem: package docker-xyz conflicts with podman-xyz
+ - cannot install both
+(try to add '--allowerasing' to command line to replace conflicting packages)
+```
+
+**原因:** Amazon Linux 系统预装的 podman 与 Docker 有包冲突
+
+**解决方案1: 使用修复脚本 (推荐)**
+
+```bash
+# 下载并运行修复脚本
+chmod +x fix-docker-conflicts.sh
+sudo bash fix-docker-conflicts.sh
+```
+
+修复脚本会自动尝试5种方案：
+1. 使用 `--allowerasing` 替换冲突包
+2. 使用 `--skip-broken` 跳过冲突包
+3. 清理缓存后重试
+4. 使用Docker官方仓库
+5. 全部依次尝试直到成功
+
+**解决方案2: 手动修复**
+
+```bash
+# 方法A: 允许删除冲突包 (推荐)
+sudo yum install -y docker --allowerasing
+
+# 方法B: 跳过冲突包
+sudo yum install -y docker --skip-broken
+
+# 方法C: 先卸载冲突包
+sudo yum remove -y podman buildah
+sudo yum install -y docker
+
+# 方法D: 使用Docker官方仓库
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo yum install -y docker-ce docker-ce-cli containerd.io
+```
+
+**验证安装:**
+
+```bash
+docker --version
+sudo systemctl start docker
+sudo docker run --rm hello-world
+```
+
+---
+
 ### 问题1: Docker服务无法启动
 
 ```bash

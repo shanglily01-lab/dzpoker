@@ -71,7 +71,7 @@ detect_system() {
 # 更新系统
 update_system() {
     log_step "更新系统软件包"
-    yum update -y
+    yum update -y --allowerasing
     yum install -y git curl wget vim net-tools
 }
 
@@ -88,9 +88,15 @@ install_docker() {
 
     # Amazon Linux 2023
     if [[ "$VER" == "2023" ]]; then
-        yum install -y docker
+        log_info "检测到Amazon Linux 2023，使用DNF安装Docker..."
+        # 尝试使用allowerasing解决依赖冲突
+        yum install -y docker --allowerasing || {
+            log_warn "标准安装失败，尝试跳过冲突包..."
+            yum install -y docker --skip-broken
+        }
     # Amazon Linux 2
     else
+        log_info "检测到Amazon Linux 2，使用amazon-linux-extras安装Docker..."
         amazon-linux-extras install docker -y
     fi
 
