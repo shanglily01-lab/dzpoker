@@ -65,9 +65,9 @@
         </div>
       </div>
 
-      <!-- 操作按钮 -->
-      <div class="actions">
-        <el-button @click="startGame" :disabled="gameState.state !== 'waiting'">
+      <!-- 游戏控制按钮 -->
+      <div class="game-controls">
+        <el-button @click="startGame" :disabled="gameState.state !== 'waiting'" type="primary">
           开始游戏
         </el-button>
         <el-button @click="dealCards" :disabled="gameState.state !== 'waiting'">
@@ -82,7 +82,60 @@
         <el-button @click="dealRiver" :disabled="gameState.state !== 'turn'">
           发河牌
         </el-button>
+        <el-button @click="executeShowdown" :disabled="gameState.state !== 'showdown'" type="success">
+          摊牌
+        </el-button>
       </div>
+
+      <!-- 玩家操作按钮 -->
+      <el-card v-if="canCurrentPlayerAct" class="player-actions-card">
+        <template #header>
+          <span>轮到你操作 - 当前下注: {{ gameState.current_bet }}</span>
+        </template>
+        <div class="player-actions">
+          <el-button @click="playerAction('fold')" type="danger" plain>
+            弃牌 (Fold)
+          </el-button>
+          <el-button
+            @click="playerAction('check')"
+            :disabled="!canCheck"
+            type="info"
+            plain
+          >
+            过牌 (Check)
+          </el-button>
+          <el-button
+            @click="playerAction('call')"
+            :disabled="!canCall"
+            type="primary"
+            plain
+          >
+            跟注 (Call {{ callAmount }})
+          </el-button>
+          <div class="raise-section">
+            <el-input-number
+              v-model="raiseAmount"
+              :min="minRaise"
+              :max="currentPlayerChips"
+              :step="gameState.blind || 10"
+            />
+            <el-button
+              @click="playerAction('raise', raiseAmount)"
+              :disabled="!canRaise"
+              type="warning"
+            >
+              加注 (Raise)
+            </el-button>
+          </div>
+          <el-button
+            @click="playerAction('all_in')"
+            :disabled="currentPlayerChips <= 0"
+            type="danger"
+          >
+            全下 (All-In {{ currentPlayerChips }})
+          </el-button>
+        </div>
+      </el-card>
     </el-card>
 
     <!-- 游戏日志 -->
@@ -252,6 +305,106 @@ const dealRiver = async () => {
   }
 }
 
+const executeShowdown = async () => {
+  try {
+    const result = await fetch(`http://${window.location.hostname}:8000/api/games/${gameId}/showdown`, {
+      method: 'POST'
+    })
+    const data = await result.json()
+
+    // 显示获胜者信息
+    data.winners.forEach(winner => {
+      addLog(`🏆 玩家${winner.player_id} 获胜！${winner.hand_description} - 赢得 ${winner.winnings}`)
+    })
+
+    gameState.value.state = 'finished'
+    ElMessage.success('游戏结束！')
+    loadGame()
+  } catch (err) {
+    ElMessage.error('摊牌失败')
+  }
+}
+
+// 玩家操作相关的计算属性和方法
+const currentPlayer = ref(1) // 当前玩家ID，实际应该从登录状态获取
+
+const canCurrentPlayerAct = computed(() => {
+  if (!gameState.value.players || gameState.value.players.length === 0) return false
+  const player = gameState.value.players.find(p => p.position === gameState.value.current_player)
+  return player && player.player_id === currentPlayer.value &&
+         ['preflop', 'flop', 'turn', 'river'].includes(gameState.value.state)
+})
+
+const currentPlayerState = computed(() => {
+  return gameState.value.players?.find(p => p.player_id === currentPlayer.value)
+})
+
+const currentPlayerChips = computed(() => {
+  return currentPlayerState.value?.chips || 0
+})
+
+const callAmount = computed(() => {
+  const player = currentPlayerState.value
+  if (!player) return 0
+  return Math.max(0, gameState.value.current_bet - player.current_bet)
+})
+
+const canCheck = computed(() => {
+  return callAmount.value === 0
+})
+
+const canCall = computed(() => {
+  return callAmount.value > 0 && callAmount.value <= currentPlayerChips.value
+})
+
+const minRaise = computed(() => {
+  return gameState.value.current_bet + (gameState.value.blind || 10)
+})
+
+const canRaise = computed(() => {
+  return currentPlayerChips.value > callAmount.value
+})
+
+const raiseAmount = ref(minRaise.value)
+
+// 处理玩家动作
+const playerAction = async (action, amount = 0) => {
+  try {
+    const response = await fetch(
+      `http://${window.location.hostname}:8000/api/games/${gameId}/action/${currentPlayer.value}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, amount })
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail)
+    }
+
+    const data = await response.json()
+    addLog(`你执行了 ${action}${amount > 0 ? ` ${amount}` : ''}`)
+    loadGame()
+  } catch (err) {
+    ElMessage.error(`操作失败: ${err.message}`)
+  }
+}
+
+// 监听 WebSocket 消息中的 showdown
+const originalHandleWsMessage = handleWsMessage
+const handleWsMessage = (data) => {
+  originalHandleWsMessage(data)
+
+  if (data.type === 'showdown') {
+    data.data.winners.forEach(winner => {
+      addLog(`🏆 玩家${winner.player_id} 获胜！${winner.hand_description} - 赢得 ${winner.winnings}`)
+    })
+    gameState.value.state = 'finished'
+  }
+}
+
 onMounted(() => {
   loadGame()
   connectWebSocket()
@@ -417,5 +570,32 @@ onUnmounted(() => {
   padding: 5px;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 3px;
+}
+
+/* 玩家操作区域样式 */
+.player-actions-card {
+  margin-top: 20px;
+  background-color: #1e3a5f;
+  border: 2px solid #4a90e2;
+}
+
+.player-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.raise-section {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.game-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
 }
 </style>
