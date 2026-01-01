@@ -377,6 +377,93 @@ sudo docker run --rm hello-world
 
 ---
 
+### 问题0.5: Docker Compose构建失败 - Buildx版本过低 ⚠️ 常见问题
+
+**错误信息:**
+```
+compose build requires buildx 0.17 or later
+```
+
+**原因:** Docker Buildx 版本过低，不兼容新版 docker-compose
+
+**快速解决方案1: 使用简易部署脚本 (最简单)**
+
+```bash
+# 使用兼容旧版Docker的部署方式
+chmod +x simple-deploy.sh
+bash simple-deploy.sh
+```
+
+这个脚本会自动选择兼容的构建方式，无需升级Docker。
+
+**快速解决方案2: 使用传统构建方式**
+
+```bash
+# 方法A: 分步构建镜像
+cd backend
+docker build -t dzpoker-api .
+cd ../frontend
+docker build -t dzpoker-frontend .
+cd ..
+
+# 然后启动服务
+docker-compose up -d
+```
+
+```bash
+# 方法B: 使用旧版docker-compose命令
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+**解决方案3: 升级 Docker Buildx (推荐长期方案)**
+
+```bash
+# 使用修复脚本
+chmod +x fix-buildx.sh
+sudo bash fix-buildx.sh
+
+# 或手动升级
+mkdir -p ~/.docker/cli-plugins
+curl -L "https://github.com/docker/buildx/releases/latest/download/buildx-v0.17.1.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx
+chmod +x ~/.docker/cli-plugins/docker-buildx
+
+# 验证
+docker buildx version
+```
+
+**解决方案4: 升级整个Docker引擎**
+
+```bash
+# 卸载旧版本
+sudo yum remove -y docker docker-client docker-common docker-latest
+
+# 安装最新版Docker
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# 启动Docker
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# 验证
+docker --version
+docker buildx version
+```
+
+**验证修复:**
+
+```bash
+# 测试构建
+docker-compose build
+
+# 或使用新版compose命令
+docker compose build
+```
+
+---
+
 ### 问题1: Docker服务无法启动
 
 ```bash
