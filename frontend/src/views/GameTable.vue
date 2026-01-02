@@ -50,8 +50,8 @@
             <div class="player-bet" v-if="player.current_bet > 0">
               下注: {{ player.current_bet }}
             </div>
-            <!-- 玩家手牌 -->
-            <div class="player-cards" v-if="playerCards[player.player_id]">
+            <!-- 玩家手牌 - 只显示当前玩家自己的牌 -->
+            <div class="player-cards" v-if="player.player_id === currentPlayer && playerCards[player.player_id]">
               <span
                 v-for="(card, idx) in playerCards[player.player_id]"
                 :key="idx"
@@ -60,6 +60,11 @@
               >
                 {{ getCardDisplay(card) }}
               </span>
+            </div>
+            <!-- 其他玩家显示牌背 -->
+            <div class="player-cards" v-else-if="gameState.state !== 'waiting' && gameState.state !== 'finished'">
+              <span class="mini-card card-back">🂠</span>
+              <span class="mini-card card-back">🂠</span>
             </div>
           </div>
         </div>
@@ -232,9 +237,13 @@ const handleWsMessage = (data) => {
     gameState.value = data.state
     addLog('游戏已开始')
   } else if (data.type === 'cards_dealt') {
-    // 保存玩家手牌
+    // 保存玩家手牌 - 使用玩家的实际player_id作为键
     data.data.hole_cards.forEach((cards, idx) => {
-      playerCards.value[idx + 1] = cards
+      // 获取对应位置的玩家ID
+      const playerId = gameState.value.players[idx]?.player_id
+      if (playerId) {
+        playerCards.value[playerId] = cards
+      }
     })
     addLog('底牌已发放')
   } else if (data.type === 'community_cards') {
@@ -262,8 +271,12 @@ const startGame = async () => {
 const dealCards = async () => {
   try {
     const data = await apiDealCards(gameId, true)
+    // 使用玩家的实际player_id作为键
     data.hole_cards.forEach((cards, idx) => {
-      playerCards.value[idx + 1] = cards
+      const playerId = gameState.value.players[idx]?.player_id
+      if (playerId) {
+        playerCards.value[playerId] = cards
+      }
     })
     gameState.value.state = 'preflop'
     addLog('底牌已发放')
