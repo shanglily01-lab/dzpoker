@@ -189,6 +189,27 @@ API:  http://YOUR_SERVER_IP:8000/docs
 
 ## 🔧 常用命令
 
+### 🔄 快速重启 (推荐)
+
+使用重启脚本，提供7种重启方式：
+
+```bash
+cd /opt/dzpoker
+chmod +x restart.sh
+bash restart.sh
+```
+
+**重启选项:**
+1. 重启所有服务 (推荐) - 快速重启所有容器
+2. 仅重启后端 API - 后端代码更新后使用
+3. 仅重启前端 - 前端代码更新后使用
+4. 仅重启数据库 - 数据库配置修改后使用
+5. 仅重启Redis - Redis配置修改后使用
+6. 完全重启 - 停止→删除→重建 (解决复杂问题)
+7. 快速重启 - 不重新构建镜像
+
+### 📋 基础命令
+
 ```bash
 # 进入项目目录
 cd /opt/dzpoker
@@ -202,15 +223,21 @@ docker-compose logs -f
 # 查看特定服务日志
 docker-compose logs -f api
 docker-compose logs -f frontend
+docker-compose logs -f db
+docker-compose logs -f redis
 
-# 重启服务
-docker-compose restart
+# 手动重启服务
+docker-compose restart              # 重启所有
+docker-compose restart api          # 重启后端
+docker-compose restart frontend     # 重启前端
 
 # 停止服务
-docker-compose down
+docker-compose stop                 # 停止所有
+docker-compose down                 # 停止并删除容器
 
 # 启动服务
-docker-compose up -d
+docker-compose start                # 启动所有
+docker-compose up -d                # 创建并启动
 
 # 重新构建
 docker-compose build --no-cache
