@@ -1,162 +1,219 @@
 <template>
-  <div class="game-table">
-    <el-card class="table-card">
-      <template #header>
-        <div class="table-header">
-          <span>游戏ID: {{ gameId }}</span>
-          <el-tag :type="statusType">{{ gameState.state || '等待中' }}</el-tag>
-        </div>
-      </template>
+  <div class="game-container">
+    <!-- 顶部信息栏 -->
+    <div class="top-bar">
+      <div class="game-info">
+        <h2>德州扑克 - {{ gameId }}</h2>
+        <el-tag :type="statusTagType" size="large">
+          {{ stateDisplayName }}
+        </el-tag>
+      </div>
+      <div class="connection-status">
+        <el-icon v-if="wsConnected" color="#67C23A"><SuccessFilled /></el-icon>
+        <el-icon v-else color="#F56C6C"><CircleCloseFilled /></el-icon>
+        {{ wsConnected ? '已连接' : '未连接' }}
+      </div>
+    </div>
 
-      <!-- 牌桌 -->
-      <div class="poker-table">
-        <!-- 公共牌 -->
-        <div class="community-cards">
-          <div
-            v-for="(card, index) in gameState.community_cards"
-            :key="index"
-            class="card"
-            :class="getSuitClass(card.suit)"
-          >
-            {{ getCardDisplay(card) }}
-          </div>
-          <div
-            v-for="i in (5 - (gameState.community_cards?.length || 0))"
-            :key="'empty-' + i"
-            class="card card-back"
-          >
-            🂠
-          </div>
-        </div>
-
-        <!-- 底池 -->
-        <div class="pot">
-          底池: {{ gameState.pot || 0 }}
-        </div>
-
-        <!-- 玩家座位 -->
-        <div class="players-circle">
-          <div
-            v-for="player in gameState.players"
-            :key="player.player_id"
-            class="player-seat"
-            :class="{
-              'is-active': player.is_active,
-              'is-current': player.position === gameState.current_player
-            }"
-          >
-            <div class="player-avatar">P{{ player.player_id }}</div>
-            <div class="player-chips">{{ player.chips }}</div>
-            <div class="player-bet" v-if="player.current_bet > 0">
-              下注: {{ player.current_bet }}
-            </div>
-            <!-- 玩家手牌 - 只显示当前玩家自己的牌 -->
-            <div class="player-cards" v-if="player.player_id === currentPlayer && playerCards[player.player_id]">
-              <span
-                v-for="(card, idx) in playerCards[player.player_id]"
-                :key="idx"
-                class="mini-card"
-                :class="getSuitClass(card.suit)"
+    <div class="main-content">
+      <!-- 左侧：牌桌 -->
+      <div class="table-section">
+        <el-card class="table-card" :body-style="{ padding: 0 }">
+          <div class="poker-table">
+            <!-- 顶部玩家位置 (2-3人) -->
+            <div class="top-players">
+              <div
+                v-for="player in topPlayers"
+                :key="player.player_id"
+                class="player-seat"
+                :class="getPlayerClasses(player)"
               >
-                {{ getCardDisplay(card) }}
-              </span>
+                <PlayerSeat :player="player" :is-current-user="player.player_id === currentPlayer"
+                  :cards="getPlayerCards(player)" :show-cards="shouldShowCards(player)" />
+              </div>
             </div>
-            <!-- 其他玩家显示牌背 -->
-            <div class="player-cards" v-else-if="gameState.state !== 'waiting' && gameState.state !== 'finished'">
-              <span class="mini-card card-back">🂠</span>
-              <span class="mini-card card-back">🂠</span>
+
+            <!-- 中央区域：公共牌和底池 -->
+            <div class="center-area">
+              <div class="community-section">
+                <h3>公共牌</h3>
+                <div class="community-cards">
+                  <PlayingCard
+                    v-for="(card, index) in gameState.community_cards"
+                    :key="index"
+                    :card="card"
+                    :index="index"
+                  />
+                  <div
+                    v-for="i in (5 - (gameState.community_cards?.length || 0))"
+                    :key="'empty-' + i"
+                    class="card card-placeholder"
+                  >
+                    <div class="card-back"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pot-display">
+                <div class="pot-icon">💰</div>
+                <div class="pot-amount">{{ formatChips(gameState.pot || 0) }}</div>
+                <div class="pot-label">底池</div>
+              </div>
+            </div>
+
+            <!-- 底部玩家位置 (2-3人) -->
+            <div class="bottom-players">
+              <div
+                v-for="player in bottomPlayers"
+                :key="player.player_id"
+                class="player-seat"
+                :class="getPlayerClasses(player)"
+              >
+                <PlayerSeat :player="player" :is-current-user="player.player_id === currentPlayer"
+                  :cards="getPlayerCards(player)" :show-cards="shouldShowCards(player)" />
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 游戏控制按钮 -->
-      <div class="game-controls">
-        <el-button @click="startGame" :disabled="gameState.state !== 'waiting'" type="primary">
-          开始游戏
-        </el-button>
-        <el-button @click="dealCards" :disabled="gameState.state !== 'waiting'">
-          发牌
-        </el-button>
-        <el-button @click="dealFlop" :disabled="gameState.state !== 'preflop'">
-          发翻牌
-        </el-button>
-        <el-button @click="dealTurn" :disabled="gameState.state !== 'flop'">
-          发转牌
-        </el-button>
-        <el-button @click="dealRiver" :disabled="gameState.state !== 'turn'">
-          发河牌
-        </el-button>
-        <el-button @click="executeShowdown" :disabled="gameState.state !== 'showdown'" type="success">
-          摊牌
-        </el-button>
-      </div>
-
-      <!-- 玩家操作按钮 -->
-      <el-card v-if="canCurrentPlayerAct" class="player-actions-card">
-        <template #header>
-          <span>轮到你操作 - 当前下注: {{ gameState.current_bet }}</span>
-        </template>
-        <div class="player-actions">
-          <el-button @click="playerAction('fold')" type="danger" plain>
-            弃牌 (Fold)
-          </el-button>
-          <el-button
-            @click="playerAction('check')"
-            :disabled="!canCheck"
-            type="info"
-            plain
-          >
-            过牌 (Check)
-          </el-button>
-          <el-button
-            @click="playerAction('call')"
-            :disabled="!canCall"
-            type="primary"
-            plain
-          >
-            跟注 (Call {{ callAmount }})
-          </el-button>
-          <div class="raise-section">
-            <el-input-number
-              v-model="raiseAmount"
-              :min="minRaise"
-              :max="currentPlayerChips"
-              :step="gameState.blind || 10"
-            />
-            <el-button
-              @click="playerAction('raise', raiseAmount)"
-              :disabled="!canRaise"
-              type="warning"
-            >
-              加注 (Raise)
-            </el-button>
+          <!-- 玩家操作区域 -->
+          <div v-if="canCurrentPlayerAct" class="action-panel">
+            <div class="action-prompt">
+              <el-icon class="prompt-icon"><Timer /></el-icon>
+              轮到你操作 · 当前下注: <span class="highlight">{{ gameState.current_bet }}</span>
+            </div>
+            <div class="action-buttons">
+              <el-button @click="playerAction('fold')" type="danger" size="large">
+                <el-icon><CloseBold /></el-icon>
+                弃牌
+              </el-button>
+              <el-button @click="playerAction('check')" :disabled="!canCheck" type="info" size="large">
+                <el-icon><Check /></el-icon>
+                过牌
+              </el-button>
+              <el-button @click="playerAction('call')" :disabled="!canCall" type="primary" size="large">
+                <el-icon><CircleCheckFilled /></el-icon>
+                跟注 {{ formatChips(callAmount) }}
+              </el-button>
+              <div class="raise-control">
+                <el-input-number
+                  v-model="raiseAmount"
+                  :min="minRaise"
+                  :max="currentPlayerChips"
+                  :step="gameState.blind || 10"
+                  size="large"
+                  controls-position="right"
+                />
+                <el-button @click="playerAction('raise', raiseAmount)" :disabled="!canRaise"
+                  type="warning" size="large">
+                  <el-icon><Top /></el-icon>
+                  加注
+                </el-button>
+              </div>
+              <el-button @click="playerAction('all_in')" :disabled="currentPlayerChips <= 0"
+                type="danger" size="large" plain>
+                <el-icon><Lightning /></el-icon>
+                All-In {{ formatChips(currentPlayerChips) }}
+              </el-button>
+            </div>
           </div>
-          <el-button
-            @click="playerAction('all_in')"
-            :disabled="currentPlayerChips <= 0"
-            type="danger"
-          >
-            全下 (All-In {{ currentPlayerChips }})
-          </el-button>
-        </div>
-      </el-card>
-    </el-card>
 
-    <!-- 游戏日志 -->
-    <el-card class="log-card">
-      <template #header>游戏日志</template>
-      <div class="log-content">
-        <p v-for="(log, index) in logs" :key="index">{{ log }}</p>
+          <!-- 游戏管理控制台（仅调试/管理员） -->
+          <div v-if="showAdminControls" class="admin-controls">
+            <el-divider>游戏控制台</el-divider>
+            <div class="control-buttons">
+              <el-button @click="startGame" :disabled="gameState.state !== 'waiting'"
+                type="primary" size="small">
+                开始游戏
+              </el-button>
+              <el-button @click="dealCards" :disabled="gameState.state !== 'waiting'" size="small">
+                发底牌
+              </el-button>
+              <el-button @click="dealFlop" :disabled="gameState.state !== 'preflop'" size="small">
+                发翻牌 (Flop)
+              </el-button>
+              <el-button @click="dealTurn" :disabled="gameState.state !== 'flop'" size="small">
+                发转牌 (Turn)
+              </el-button>
+              <el-button @click="dealRiver" :disabled="gameState.state !== 'turn'" size="small">
+                发河牌 (River)
+              </el-button>
+              <el-button @click="executeShowdown" :disabled="!canShowdown"
+                type="success" size="small">
+                摊牌 (Showdown)
+              </el-button>
+            </div>
+          </div>
+        </el-card>
       </div>
-    </el-card>
+
+      <!-- 右侧：游戏日志和信息 -->
+      <div class="info-section">
+        <!-- 当前玩家信息卡片 -->
+        <el-card class="player-info-card">
+          <template #header>
+            <div class="card-header">
+              <el-icon><User /></el-icon>
+              <span>我的信息</span>
+            </div>
+          </template>
+          <div class="my-info">
+            <div class="info-row">
+              <span class="label">玩家ID:</span>
+              <el-tag>P{{ currentPlayer }}</el-tag>
+            </div>
+            <div class="info-row">
+              <span class="label">筹码:</span>
+              <span class="chips-value">{{ formatChips(currentPlayerChips) }}</span>
+            </div>
+            <div v-if="currentPlayerState" class="info-row">
+              <span class="label">当前下注:</span>
+              <span class="bet-value">{{ formatChips(currentPlayerState.current_bet) }}</span>
+            </div>
+            <div v-if="playerCards[currentPlayer]" class="info-row">
+              <span class="label">手牌:</span>
+              <div class="my-cards">
+                <PlayingCard
+                  v-for="(card, idx) in playerCards[currentPlayer]"
+                  :key="idx"
+                  :card="card"
+                  size="small"
+                />
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 游戏日志 -->
+        <el-card class="log-card">
+          <template #header>
+            <div class="card-header">
+              <el-icon><DocumentCopy /></el-icon>
+              <span>游戏日志</span>
+              <el-button @click="clearLogs" size="small" text>清空</el-button>
+            </div>
+          </template>
+          <div class="log-content" ref="logContainer">
+            <div v-for="(log, index) in logs" :key="index" class="log-entry">
+              {{ log }}
+            </div>
+            <div v-if="logs.length === 0" class="log-empty">
+              暂无日志
+            </div>
+          </div>
+        </el-card>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import {
+  SuccessFilled, CircleCloseFilled, Timer, CloseBold, Check,
+  CircleCheckFilled, Top, Lightning, User, DocumentCopy
+} from '@element-plus/icons-vue'
 import {
   getGame,
   startGame as apiStartGame,
@@ -166,186 +223,68 @@ import {
   dealRiver as apiDealRiver
 } from '@/api'
 
+// 子组件
+import PlayingCard from '@/components/PlayingCard.vue'
+import PlayerSeat from '@/components/PlayerSeat.vue'
+
 const route = useRoute()
 const gameId = route.params.id
 
+// 状态
 const gameState = ref({
   state: 'waiting',
   pot: 0,
   current_player: 0,
+  current_bet: 0,
+  blind: 10,
   community_cards: [],
   players: []
 })
 
 const playerCards = ref({})
 const logs = ref([])
+const wsConnected = ref(false)
+const logContainer = ref(null)
 let ws = null
 
-const statusType = computed(() => {
+// 当前玩家ID（实际应从登录状态获取）
+const currentPlayer = ref(1)
+
+// 是否显示管理控制台
+const showAdminControls = ref(true) // 开发时为true，生产环境应为false
+
+// 计算属性
+const stateDisplayName = computed(() => {
+  const stateMap = {
+    'waiting': '等待中',
+    'preflop': '翻牌前',
+    'flop': '翻牌圈',
+    'turn': '转牌圈',
+    'river': '河牌圈',
+    'showdown': '摊牌',
+    'finished': '已结束'
+  }
+  return stateMap[gameState.value.state] || gameState.value.state
+})
+
+const statusTagType = computed(() => {
   const state = gameState.value.state
   if (state === 'waiting') return 'info'
   if (state === 'finished') return 'success'
-  return 'warning'
+  if (state === 'showdown') return 'warning'
+  return 'primary'
 })
 
-const SUITS = ['♠', '♥', '♦', '♣']
-const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
+const topPlayers = computed(() => {
+  const players = gameState.value.players || []
+  const half = Math.ceil(players.length / 2)
+  return players.slice(0, half)
+})
 
-const getCardDisplay = (card) => {
-  return RANKS[card.rank] + SUITS[card.suit]
-}
-
-const getSuitClass = (suit) => {
-  return suit === 1 || suit === 2 ? 'red' : 'black'
-}
-
-const addLog = (msg) => {
-  logs.value.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`)
-  if (logs.value.length > 50) logs.value.pop()
-}
-
-const loadGame = async () => {
-  try {
-    const data = await getGame(gameId)
-    gameState.value = data
-    addLog('游戏状态已加载')
-  } catch (err) {
-    ElMessage.error('加载游戏失败')
-  }
-}
-
-const connectWebSocket = () => {
-  const wsUrl = `ws://${window.location.hostname}:8000/api/games/ws/${gameId}`
-  ws = new WebSocket(wsUrl)
-
-  ws.onopen = () => {
-    addLog('WebSocket已连接')
-  }
-
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data)
-    handleWsMessage(data)
-  }
-
-  ws.onclose = () => {
-    addLog('WebSocket已断开')
-  }
-}
-
-const handleWsMessage = (data) => {
-  if (data.type === 'game_started') {
-    gameState.value = data.state
-    addLog('游戏已开始')
-  } else if (data.type === 'cards_dealt') {
-    // 保存玩家手牌 - 使用玩家的实际player_id作为键
-    data.data.hole_cards.forEach((cards, idx) => {
-      // 获取对应位置的玩家ID
-      const playerId = gameState.value.players[idx]?.player_id
-      if (playerId) {
-        playerCards.value[playerId] = cards
-      }
-    })
-    addLog('底牌已发放')
-  } else if (data.type === 'community_cards') {
-    gameState.value.community_cards = data.data.cards || [
-      ...gameState.value.community_cards,
-      data.data.card
-    ]
-    addLog(`${data.data.street}已发放`)
-  } else if (data.type === 'player_action') {
-    gameState.value = data.data.game_state
-    addLog(`玩家${data.data.player_id} ${data.data.action}`)
-  }
-}
-
-const startGame = async () => {
-  try {
-    await apiStartGame(gameId)
-    ElMessage.success('游戏已开始')
-    loadGame()
-  } catch (err) {
-    ElMessage.error('开始失败')
-  }
-}
-
-const dealCards = async () => {
-  try {
-    const data = await apiDealCards(gameId, true)
-    // 使用玩家的实际player_id作为键
-    data.hole_cards.forEach((cards, idx) => {
-      const playerId = gameState.value.players[idx]?.player_id
-      if (playerId) {
-        playerCards.value[playerId] = cards
-      }
-    })
-    gameState.value.state = 'preflop'
-    addLog('底牌已发放')
-  } catch (err) {
-    ElMessage.error('发牌失败')
-  }
-}
-
-const dealFlop = async () => {
-  try {
-    const data = await apiDealFlop(gameId)
-    gameState.value.community_cards = data.cards
-    gameState.value.state = 'flop'
-    addLog('翻牌已发放')
-  } catch (err) {
-    ElMessage.error('发翻牌失败')
-  }
-}
-
-const dealTurn = async () => {
-  try {
-    const data = await apiDealTurn(gameId)
-    gameState.value.community_cards.push(data.card)
-    gameState.value.state = 'turn'
-    addLog('转牌已发放')
-  } catch (err) {
-    ElMessage.error('发转牌失败')
-  }
-}
-
-const dealRiver = async () => {
-  try {
-    const data = await apiDealRiver(gameId)
-    gameState.value.community_cards.push(data.card)
-    gameState.value.state = 'river'
-    addLog('河牌已发放')
-  } catch (err) {
-    ElMessage.error('发河牌失败')
-  }
-}
-
-const executeShowdown = async () => {
-  try {
-    const result = await fetch(`http://${window.location.hostname}:8000/api/games/${gameId}/showdown`, {
-      method: 'POST'
-    })
-    const data = await result.json()
-
-    // 显示获胜者信息
-    data.winners.forEach(winner => {
-      addLog(`🏆 玩家${winner.player_id} 获胜！${winner.hand_description} - 赢得 ${winner.winnings}`)
-    })
-
-    gameState.value.state = 'finished'
-    ElMessage.success('游戏结束！')
-    loadGame()
-  } catch (err) {
-    ElMessage.error('摊牌失败')
-  }
-}
-
-// 玩家操作相关的计算属性和方法
-const currentPlayer = ref(1) // 当前玩家ID，实际应该从登录状态获取
-
-const canCurrentPlayerAct = computed(() => {
-  if (!gameState.value.players || gameState.value.players.length === 0) return false
-  const player = gameState.value.players.find(p => p.position === gameState.value.current_player)
-  return player && player.player_id === currentPlayer.value &&
-         ['preflop', 'flop', 'turn', 'river'].includes(gameState.value.state)
+const bottomPlayers = computed(() => {
+  const players = gameState.value.players || []
+  const half = Math.ceil(players.length / 2)
+  return players.slice(half)
 })
 
 const currentPlayerState = computed(() => {
@@ -356,31 +295,244 @@ const currentPlayerChips = computed(() => {
   return currentPlayerState.value?.chips || 0
 })
 
+const canCurrentPlayerAct = computed(() => {
+  if (!gameState.value.players || gameState.value.players.length === 0) return false
+  const player = gameState.value.players.find(p => p.position === gameState.value.current_player)
+  return player && player.player_id === currentPlayer.value &&
+         ['preflop', 'flop', 'turn', 'river'].includes(gameState.value.state)
+})
+
 const callAmount = computed(() => {
   const player = currentPlayerState.value
   if (!player) return 0
   return Math.max(0, gameState.value.current_bet - player.current_bet)
 })
 
-const canCheck = computed(() => {
-  return callAmount.value === 0
-})
-
-const canCall = computed(() => {
-  return callAmount.value > 0 && callAmount.value <= currentPlayerChips.value
-})
-
-const minRaise = computed(() => {
-  return gameState.value.current_bet + (gameState.value.blind || 10)
-})
-
-const canRaise = computed(() => {
-  return currentPlayerChips.value > callAmount.value
+const canCheck = computed(() => callAmount.value === 0)
+const canCall = computed(() => callAmount.value > 0 && callAmount.value <= currentPlayerChips.value)
+const minRaise = computed(() => gameState.value.current_bet + (gameState.value.blind || 10))
+const canRaise = computed(() => currentPlayerChips.value > callAmount.value)
+const canShowdown = computed(() => {
+  return gameState.value.state === 'river' || gameState.value.state === 'showdown'
 })
 
 const raiseAmount = ref(minRaise.value)
 
-// 处理玩家动作
+// 监听 minRaise 变化，自动更新 raiseAmount
+watch(minRaise, (newVal) => {
+  if (raiseAmount.value < newVal) {
+    raiseAmount.value = newVal
+  }
+})
+
+// 方法
+const formatChips = (amount) => {
+  if (!amount) return '0'
+  return amount.toLocaleString()
+}
+
+const getPlayerClasses = (player) => {
+  return {
+    'is-active': player.is_active,
+    'is-current': player.position === gameState.value.current_player,
+    'is-all-in': player.is_all_in,
+    'is-me': player.player_id === currentPlayer.value
+  }
+}
+
+const getPlayerCards = (player) => {
+  return playerCards.value[player.player_id] || []
+}
+
+const shouldShowCards = (player) => {
+  // 只显示当前玩家自己的牌，或者在showdown/finished状态显示所有牌
+  return player.player_id === currentPlayer.value ||
+         ['showdown', 'finished'].includes(gameState.value.state)
+}
+
+const addLog = (msg) => {
+  const timestamp = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+  logs.value.unshift(`[${timestamp}] ${msg}`)
+  if (logs.value.length > 100) logs.value.pop()
+
+  // 滚动到顶部
+  nextTick(() => {
+    if (logContainer.value) {
+      logContainer.value.scrollTop = 0
+    }
+  })
+}
+
+const clearLogs = () => {
+  logs.value = []
+  addLog('日志已清空')
+}
+
+const loadGame = async () => {
+  try {
+    const data = await getGame(gameId)
+    gameState.value = data
+    addLog('✓ 游戏状态已刷新')
+  } catch (err) {
+    ElMessage.error('加载游戏失败: ' + err.message)
+  }
+}
+
+const connectWebSocket = () => {
+  const wsUrl = `ws://${window.location.hostname}:8000/api/games/ws/${gameId}`
+  ws = new WebSocket(wsUrl)
+
+  ws.onopen = () => {
+    wsConnected.value = true
+    addLog('✓ WebSocket 已连接')
+  }
+
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data)
+    handleWsMessage(data)
+  }
+
+  ws.onclose = () => {
+    wsConnected.value = false
+    addLog('✗ WebSocket 已断开')
+    // 尝试重连
+    setTimeout(() => {
+      if (!wsConnected.value) {
+        addLog('尝试重新连接...')
+        connectWebSocket()
+      }
+    }, 3000)
+  }
+
+  ws.onerror = () => {
+    addLog('✗ WebSocket 连接错误')
+  }
+}
+
+const handleWsMessage = (data) => {
+  if (data.type === 'game_started') {
+    gameState.value = data.state
+    addLog('🎮 游戏已开始！')
+  } else if (data.type === 'cards_dealt') {
+    // 保存玩家手牌
+    data.data.hole_cards.forEach((cards, idx) => {
+      const playerId = gameState.value.players[idx]?.player_id
+      if (playerId) {
+        playerCards.value[playerId] = cards
+      }
+    })
+    addLog('🃏 底牌已发放')
+  } else if (data.type === 'community_cards') {
+    gameState.value.community_cards = data.data.cards || [
+      ...gameState.value.community_cards,
+      data.data.card
+    ]
+    addLog(`🎴 ${data.data.street} 已发放`)
+  } else if (data.type === 'player_action') {
+    gameState.value = data.data.game_state
+    const actionText = {
+      'fold': '弃牌',
+      'check': '过牌',
+      'call': '跟注',
+      'raise': '加注',
+      'all_in': 'All-in'
+    }[data.data.action] || data.data.action
+    addLog(`👤 玩家 P${data.data.player_id} ${actionText}`)
+  } else if (data.type === 'showdown') {
+    data.data.winners.forEach(winner => {
+      addLog(`🏆 玩家 P${winner.player_id} 获胜！${winner.hand_description} - 赢得 ${formatChips(winner.winnings)}`)
+    })
+    gameState.value.state = 'finished'
+    ElMessage.success({
+      message: '游戏结束！',
+      duration: 3000
+    })
+  }
+}
+
+// API 调用
+const startGame = async () => {
+  try {
+    await apiStartGame(gameId)
+    ElMessage.success('游戏已开始')
+    await loadGame()
+  } catch (err) {
+    ElMessage.error('开始游戏失败: ' + err.message)
+  }
+}
+
+const dealCards = async () => {
+  try {
+    const data = await apiDealCards(gameId, true)
+    data.hole_cards.forEach((cards, idx) => {
+      const playerId = gameState.value.players[idx]?.player_id
+      if (playerId) {
+        playerCards.value[playerId] = cards
+      }
+    })
+    gameState.value.state = 'preflop'
+    addLog('🃏 底牌已发放')
+    ElMessage.success('底牌已发放')
+  } catch (err) {
+    ElMessage.error('发牌失败: ' + err.message)
+  }
+}
+
+const dealFlop = async () => {
+  try {
+    const data = await apiDealFlop(gameId)
+    gameState.value.community_cards = data.cards
+    gameState.value.state = 'flop'
+    addLog('🎴 翻牌已发放')
+    ElMessage.success('翻牌已发放')
+  } catch (err) {
+    ElMessage.error('发翻牌失败: ' + err.message)
+  }
+}
+
+const dealTurn = async () => {
+  try {
+    const data = await apiDealTurn(gameId)
+    gameState.value.community_cards.push(data.card)
+    gameState.value.state = 'turn'
+    addLog('🎴 转牌已发放')
+    ElMessage.success('转牌已发放')
+  } catch (err) {
+    ElMessage.error('发转牌失败: ' + err.message)
+  }
+}
+
+const dealRiver = async () => {
+  try {
+    const data = await apiDealRiver(gameId)
+    gameState.value.community_cards.push(data.card)
+    gameState.value.state = 'river'
+    addLog('🎴 河牌已发放')
+    ElMessage.success('河牌已发放')
+  } catch (err) {
+    ElMessage.error('发河牌失败: ' + err.message)
+  }
+}
+
+const executeShowdown = async () => {
+  try {
+    const result = await fetch(`http://${window.location.hostname}:8000/api/games/${gameId}/showdown`, {
+      method: 'POST'
+    })
+    const data = await result.json()
+
+    data.winners.forEach(winner => {
+      addLog(`🏆 玩家 P${winner.player_id} 获胜！${winner.hand_description} - 赢得 ${formatChips(winner.winnings)}`)
+    })
+
+    gameState.value.state = 'finished'
+    ElMessage.success('游戏结束！')
+    await loadGame()
+  } catch (err) {
+    ElMessage.error('摊牌失败: ' + err.message)
+  }
+}
+
 const playerAction = async (action, amount = 0) => {
   try {
     const response = await fetch(
@@ -397,218 +549,388 @@ const playerAction = async (action, amount = 0) => {
       throw new Error(error.detail)
     }
 
-    const data = await response.json()
-    addLog(`你执行了 ${action}${amount > 0 ? ` ${amount}` : ''}`)
-    loadGame()
+    const actionText = {
+      'fold': '弃牌',
+      'check': '过牌',
+      'call': '跟注',
+      'raise': '加注',
+      'all_in': 'All-in'
+    }[action] || action
+
+    addLog(`✓ 你执行了 ${actionText}${amount > 0 ? ` (${formatChips(amount)})` : ''}`)
+    await loadGame()
   } catch (err) {
     ElMessage.error(`操作失败: ${err.message}`)
   }
 }
 
-// 监听 WebSocket 消息中的 showdown
-const originalHandleWsMessage = handleWsMessage
-const handleWsMessage = (data) => {
-  originalHandleWsMessage(data)
-
-  if (data.type === 'showdown') {
-    data.data.winners.forEach(winner => {
-      addLog(`🏆 玩家${winner.player_id} 获胜！${winner.hand_description} - 赢得 ${winner.winnings}`)
-    })
-    gameState.value.state = 'finished'
-  }
-}
-
+// 生命周期
 onMounted(() => {
   loadGame()
   connectWebSocket()
+  addLog('欢迎来到德州扑克！')
 })
 
 onUnmounted(() => {
-  if (ws) ws.close()
+  if (ws) {
+    ws.close()
+  }
 })
 </script>
 
 <style scoped>
-.game-table {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+.game-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+  padding: 20px;
 }
 
-.table-card, .log-card {
-  background-color: #16213e;
-  border: 1px solid #0f3460;
-  color: #eee;
-}
-
-.table-header {
+.top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+  padding: 15px 30px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.game-info h2 {
+  margin: 0 0 10px 0;
+  color: #fff;
+  font-size: 24px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1200px) {
+  .main-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 牌桌区域 */
+.table-section {
+  min-height: 600px;
+}
+
+.table-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden;
 }
 
 .poker-table {
-  background: radial-gradient(ellipse at center, #1a472a 0%, #0d2818 100%);
-  border-radius: 150px;
-  padding: 40px;
-  min-height: 400px;
+  background: radial-gradient(ellipse at center, #1a5c2e 0%, #0d3318 100%);
+  border: 8px solid #8b6914;
+  border-radius: 200px / 120px;
+  padding: 40px 60px;
+  min-height: 550px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.5);
+}
+
+.top-players, .bottom-players {
+  display: flex;
+  justify-content: space-around;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.center-area {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  position: relative;
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.community-section h3 {
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin: 0 0 15px 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
 .community-cards {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 12px;
+  justify-content: center;
 }
 
 .card {
-  width: 50px;
-  height: 70px;
-  background: white;
-  border-radius: 5px;
+  width: 70px;
+  height: 98px;
+  border-radius: 8px;
+  transition: transform 0.3s ease;
+}
+
+.card-placeholder {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  font-weight: bold;
 }
 
-.card.black { color: #000; }
-.card.red { color: #e94560; }
-.card.card-back {
-  background: #1a472a;
-  border: 2px solid #2d5a3d;
-  color: #4a7c59;
+.card-back {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    #2d5a3d,
+    #2d5a3d 10px,
+    #1a4728 10px,
+    #1a4728 20px
+  );
+  border-radius: 6px;
 }
 
-.pot {
-  background: rgba(0, 0, 0, 0.5);
-  padding: 10px 30px;
-  border-radius: 20px;
-  color: gold;
-  font-size: 18px;
-  margin-bottom: 30px;
-}
-
-.players-circle {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 15px;
-}
-
-.player-seat {
-  background: rgba(0, 0, 0, 0.6);
-  padding: 10px 15px;
-  border-radius: 10px;
+.pot-display {
+  background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
+  padding: 20px 40px;
+  border-radius: 50px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   text-align: center;
-  min-width: 80px;
-  border: 2px solid transparent;
+  border: 2px solid #ffd700;
+}
+
+.pot-icon {
+  font-size: 32px;
+  margin-bottom: 5px;
+}
+
+.pot-amount {
+  font-size: 28px;
+  font-weight: bold;
+  color: #ffd700;
+  margin-bottom: 5px;
+}
+
+.pot-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* 玩家座位 */
+.player-seat {
+  transition: all 0.3s ease;
 }
 
 .player-seat.is-current {
-  border-color: gold;
+  animation: pulse 2s infinite;
 }
 
-.player-seat:not(.is-active) {
-  opacity: 0.5;
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
-.player-avatar {
-  width: 40px;
-  height: 40px;
-  background: #0f3460;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 5px;
+.player-seat.is-me {
+  position: relative;
+}
+
+.player-seat.is-me::after {
+  content: 'YOU';
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #ffd700;
+  color: #000;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
   font-weight: bold;
 }
 
-.player-chips {
-  color: #4ecca3;
+/* 操作面板 */
+.action-panel {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+  padding: 25px 30px;
+  border-top: 3px solid #4a90e2;
+}
+
+.action-prompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 18px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.prompt-icon {
+  font-size: 24px;
+  color: #ffd700;
+}
+
+.highlight {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.action-buttons .el-button {
+  flex: 1;
+  min-width: 120px;
+}
+
+.raise-control {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex: 2;
+}
+
+.raise-control .el-input-number {
+  flex: 1;
+}
+
+/* 管理控制台 */
+.admin-controls {
+  padding: 20px 30px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.control-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 右侧信息区 */
+.info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.player-info-card, .log-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-weight: 500;
+}
+
+.my-info {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.label {
+  color: rgba(255, 255, 255, 0.7);
   font-size: 14px;
 }
 
-.player-bet {
-  color: gold;
-  font-size: 12px;
-  margin-top: 3px;
+.chips-value {
+  color: #4ecca3;
+  font-size: 20px;
+  font-weight: bold;
 }
 
-.player-cards {
+.bet-value {
+  color: #ffd700;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.my-cards {
   display: flex;
-  gap: 3px;
-  justify-content: center;
-  margin-top: 5px;
+  gap: 8px;
 }
 
-.mini-card {
-  background: white;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-size: 12px;
-}
-
-.mini-card.red { color: #e94560; }
-.mini-card.black { color: #000; }
-
-.actions {
-  margin-top: 20px;
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.log-card {
-  max-height: 500px;
-}
-
+/* 日志区域 */
 .log-content {
-  height: 400px;
+  max-height: 400px;
   overflow-y: auto;
-  font-size: 12px;
-  color: #aaa;
+  padding: 10px;
 }
 
-.log-content p {
-  margin: 5px 0;
-  padding: 5px;
+.log-entry {
+  padding: 8px 12px;
+  margin-bottom: 6px;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 3px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: 'Consolas', 'Monaco', monospace;
 }
 
-/* 玩家操作区域样式 */
-.player-actions-card {
-  margin-top: 20px;
-  background-color: #1e3a5f;
-  border: 2px solid #4a90e2;
+.log-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 40px 20px;
+  font-size: 14px;
 }
 
-.player-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
+/* 滚动条样式 */
+.log-content::-webkit-scrollbar {
+  width: 8px;
 }
 
-.raise-section {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+.log-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
 }
 
-.game-controls {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 20px;
+.log-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.log-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 </style>
