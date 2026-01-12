@@ -746,10 +746,18 @@ const runAutoGame = async () => {
 }
 
 // 生命周期
-onMounted(() => {
-  loadGame()
+onMounted(async () => {
+  await loadGame()
   connectWebSocket()
   addLog('欢迎来到德州扑克！')
+
+  // 检查URL参数，如果有auto=true则自动开始游戏
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('auto') === 'true') {
+    addLog('🤖 检测到自动模式，3秒后开始自动游戏...')
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    await toggleAutoGame()
+  }
 })
 
 onUnmounted(() => {

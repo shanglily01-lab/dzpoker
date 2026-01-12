@@ -43,6 +43,10 @@
         <el-button type="primary" @click="showCreateGame = true">
           创建新游戏
         </el-button>
+        <el-button type="success" @click="createAutoGame" :loading="creatingAuto">
+          <el-icon><VideoPlay /></el-icon>
+          创建并自动运行
+        </el-button>
         <el-button @click="runSimulation">
           运行模拟测试
         </el-button>
@@ -99,10 +103,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh, VideoPlay } from '@element-plus/icons-vue'
 import { createGame as apiCreateGame, getGameStats, listGames } from '@/api'
 
 const router = useRouter()
+const creatingAuto = ref(false)
 
 const stats = reactive({
   totalGames: 0,
@@ -195,6 +200,27 @@ const refreshData = async () => {
     console.error('刷新数据失败:', err)
   } finally {
     loading.value = false
+  }
+}
+
+const createAutoGame = async () => {
+  creatingAuto.value = true
+  try {
+    const res = await apiCreateGame({
+      num_players: 6,
+      small_blind: 10,
+      big_blind: 20
+    })
+
+    ElMessage.success('游戏创建成功，正在进入自动模式...')
+    await refreshData()
+
+    // 跳转到游戏页面并自动开始
+    router.push(`/game/${res.game_id}?auto=true`)
+  } catch (err) {
+    ElMessage.error('创建失败: ' + (err.message || '未知错误'))
+  } finally {
+    creatingAuto.value = false
   }
 }
 
