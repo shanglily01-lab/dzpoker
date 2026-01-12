@@ -539,37 +539,55 @@ const dealCards = async () => {
 
 const dealFlop = async () => {
   try {
+    ElMessage.warning('注意：后端会在下注轮结束时自动发翻牌，通常不需要手动点击')
     const data = await apiDealFlop(gameId)
     gameState.value.community_cards = data.cards
     gameState.value.state = 'flop'
-    addLog('🎴 翻牌已发放')
+    addLog('🎴 翻牌已发放（手动）')
     ElMessage.success('翻牌已发放')
   } catch (err) {
-    ElMessage.error('发翻牌失败: ' + err.message)
+    if (err.response?.status === 400) {
+      ElMessage.warning('翻牌已自动发放，无需手动操作')
+      await loadGame() // 刷新游戏状态
+    } else {
+      ElMessage.error('发翻牌失败: ' + err.message)
+    }
   }
 }
 
 const dealTurn = async () => {
   try {
+    ElMessage.warning('注意：后端会在下注轮结束时自动发转牌，通常不需要手动点击')
     const data = await apiDealTurn(gameId)
     gameState.value.community_cards.push(data.card)
     gameState.value.state = 'turn'
-    addLog('🎴 转牌已发放')
+    addLog('🎴 转牌已发放（手动）')
     ElMessage.success('转牌已发放')
   } catch (err) {
-    ElMessage.error('发转牌失败: ' + err.message)
+    if (err.response?.status === 400) {
+      ElMessage.warning('转牌已自动发放，无需手动操作')
+      await loadGame() // 刷新游戏状态
+    } else {
+      ElMessage.error('发转牌失败: ' + err.message)
+    }
   }
 }
 
 const dealRiver = async () => {
   try {
+    ElMessage.warning('注意：后端会在下注轮结束时自动发河牌，通常不需要手动点击')
     const data = await apiDealRiver(gameId)
     gameState.value.community_cards.push(data.card)
     gameState.value.state = 'river'
-    addLog('🎴 河牌已发放')
+    addLog('🎴 河牌已发放（手动）')
     ElMessage.success('河牌已发放')
   } catch (err) {
-    ElMessage.error('发河牌失败: ' + err.message)
+    if (err.response?.status === 400) {
+      ElMessage.warning('河牌已自动发放，无需手动操作')
+      await loadGame() // 刷新游戏状态
+    } else {
+      ElMessage.error('发河牌失败: ' + err.message)
+    }
   }
 }
 
@@ -712,30 +730,8 @@ const runAutoGame = async () => {
         }
       }
 
-      // 自动进入下一阶段
-      if (currentState === 'preflop') {
-        // 检查是否可以发翻牌
-        const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
-        if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          await dealFlop()
-          addLog('🎴 自动发翻牌')
-        }
-      } else if (currentState === 'flop') {
-        const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
-        if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          await dealTurn()
-          addLog('🎴 自动发转牌')
-        }
-      } else if (currentState === 'turn') {
-        const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
-        if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          await dealRiver()
-          addLog('🎴 自动发河牌')
-        }
-      } else if (currentState === 'river' || currentState === 'showdown') {
+      // 检查是否需要摊牌（后端已自动处理状态推进和发牌）
+      if (currentState === 'showdown') {
         const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
         if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
           await new Promise(resolve => setTimeout(resolve, 1000))
