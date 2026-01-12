@@ -46,7 +46,11 @@ docker-compose ps
 echo ""
 
 echo "6. 查看后端最近日志（最后 30 行）"
-docker logs backend --tail 30
+if docker ps | grep -q "poker-api"; then
+    docker logs poker-api --tail 30
+else
+    docker logs api --tail 30
+fi
 echo ""
 
 echo "======================================"

@@ -64,7 +64,7 @@ fi
 echo ""
 
 echo "步骤 7: 重新构建（这可能需要几分钟）"
-docker-compose build --no-cache backend
+docker-compose build --no-cache api
 echo "✓ 后端构建完成"
 echo ""
 
@@ -84,7 +84,11 @@ echo ""
 
 echo "步骤 11: 查看后端日志"
 echo "最近 30 行:"
-docker logs backend --tail 30
+if docker ps | grep -q "poker-api"; then
+    docker logs poker-api --tail 30
+else
+    docker logs api --tail 30
+fi
 echo ""
 
 echo "======================================"
