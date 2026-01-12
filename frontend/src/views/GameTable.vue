@@ -120,6 +120,37 @@
           <!-- 游戏管理控制台（仅调试/管理员） -->
           <div v-if="showAdminControls" class="admin-controls">
             <el-divider>游戏控制台</el-divider>
+
+            <!-- AI自动模式 -->
+            <div class="ai-mode-section">
+              <el-switch
+                v-model="aiAutoMode"
+                active-text="AI自动模式"
+                inactive-text="手动模式"
+                @change="toggleAIMode"
+              />
+              <el-button
+                v-if="!aiAutoMode"
+                @click="executeAISingleAction"
+                :disabled="!canExecuteAIAction"
+                type="warning"
+                size="small"
+              >
+                <el-icon><Lightning /></el-icon>
+                AI执行一步
+              </el-button>
+              <el-button
+                @click="toggleAutoGame"
+                :type="autoGameRunning ? 'danger' : 'success'"
+                size="small"
+                :loading="autoGameRunning"
+              >
+                {{ autoGameRunning ? '停止自动游戏' : '开始自动游戏' }}
+              </el-button>
+            </div>
+
+            <el-divider />
+
             <div class="control-buttons">
               <el-button @click="startGame" :disabled="gameState.state !== 'waiting'"
                 type="primary" size="small">
@@ -221,7 +252,8 @@ import {
   dealFlop as apiDealFlop,
   dealTurn as apiDealTurn,
   dealRiver as apiDealRiver,
-  playerAction as apiPlayerAction
+  playerAction as apiPlayerAction,
+  singleAIAction
 } from '@/api'
 
 // 子组件
@@ -253,6 +285,11 @@ const currentPlayer = ref(1)
 
 // 是否显示管理控制台
 const showAdminControls = ref(true) // 开发时为true，生产环境应为false
+
+// AI自动模式
+const aiAutoMode = ref(false)
+const autoGameRunning = ref(false)
+let autoGameInterval = null
 
 // 计算属性
 const stateDisplayName = computed(() => {
@@ -315,6 +352,11 @@ const minRaise = computed(() => gameState.value.current_bet + (gameState.value.b
 const canRaise = computed(() => currentPlayerChips.value > callAmount.value)
 const canShowdown = computed(() => {
   return gameState.value.state === 'river' || gameState.value.state === 'showdown'
+})
+
+const canExecuteAIAction = computed(() => {
+  return ['preflop', 'flop', 'turn', 'river'].includes(gameState.value.state) &&
+         gameState.value.current_player !== undefined
 })
 
 const raiseAmount = ref(minRaise.value)
@@ -569,6 +611,140 @@ const playerAction = async (action, amount = 0) => {
   }
 }
 
+// AI相关方法
+const executeAISingleAction = async () => {
+  try {
+    const result = await singleAIAction(gameId)
+
+    const actionText = {
+      'fold': '弃牌',
+      'check': '过牌',
+      'call': '跟注',
+      'raise': '加注',
+      'all_in': 'All-in'
+    }[result.action] || result.action
+
+    addLog(`🤖 AI玩家 P${result.player_id} (${result.player_type}): ${actionText}${result.amount > 0 ? ` ${formatChips(result.amount)}` : ''}`)
+
+    if (result.game_state) {
+      gameState.value = result.game_state
+    } else {
+      await loadGame()
+    }
+  } catch (err) {
+    ElMessage.error('AI执行失败: ' + (err.response?.data?.detail || err.message || '未知错误'))
+  }
+}
+
+const toggleAIMode = (enabled) => {
+  if (enabled) {
+    addLog('✅ AI自动模式已启用')
+    ElMessage.success('AI将自动执行非当前玩家的动作')
+  } else {
+    addLog('⏸️ AI自动模式已禁用')
+  }
+}
+
+const toggleAutoGame = async () => {
+  if (autoGameRunning.value) {
+    // 停止自动游戏
+    autoGameRunning.value = false
+    if (autoGameInterval) {
+      clearInterval(autoGameInterval)
+      autoGameInterval = null
+    }
+    addLog('⏹️ 自动游戏已停止')
+    ElMessage.info('自动游戏已停止')
+  } else {
+    // 开始自动游戏
+    autoGameRunning.value = true
+    addLog('▶️ 自动游戏已开始')
+    ElMessage.success('自动游戏进行中...')
+
+    // 自动执行游戏流程
+    await runAutoGame()
+  }
+}
+
+const runAutoGame = async () => {
+  try {
+    // 如果游戏还在等待状态，先开始游戏
+    if (gameState.value.state === 'waiting') {
+      await startGame()
+      await new Promise(resolve => setTimeout(resolve, 500))
+      await dealCards()
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+
+    // 自动执行AI动作
+    autoGameInterval = setInterval(async () => {
+      if (!autoGameRunning.value) {
+        clearInterval(autoGameInterval)
+        return
+      }
+
+      const currentState = gameState.value.state
+
+      // 如果在下注阶段，执行AI动作
+      if (['preflop', 'flop', 'turn', 'river'].includes(currentState)) {
+        try {
+          await executeAISingleAction()
+          await new Promise(resolve => setTimeout(resolve, 800))
+        } catch (err) {
+          // 如果AI动作失败，可能是下注轮结束了
+          console.log('AI action failed, moving to next stage:', err)
+        }
+      }
+
+      // 自动进入下一阶段
+      if (currentState === 'preflop') {
+        // 检查是否可以发翻牌
+        const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
+        if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          await dealFlop()
+          addLog('🎴 自动发翻牌')
+        }
+      } else if (currentState === 'flop') {
+        const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
+        if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          await dealTurn()
+          addLog('🎴 自动发转牌')
+        }
+      } else if (currentState === 'turn') {
+        const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
+        if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          await dealRiver()
+          addLog('🎴 自动发河牌')
+        }
+      } else if (currentState === 'river' || currentState === 'showdown') {
+        const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
+        if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          await executeShowdown()
+          addLog('🏆 自动摊牌')
+
+          // 游戏结束，停止自动游戏
+          autoGameRunning.value = false
+          clearInterval(autoGameInterval)
+          ElMessage.success('游戏结束！')
+        }
+      } else if (currentState === 'finished') {
+        autoGameRunning.value = false
+        clearInterval(autoGameInterval)
+      }
+    }, 1000)
+  } catch (err) {
+    autoGameRunning.value = false
+    if (autoGameInterval) {
+      clearInterval(autoGameInterval)
+    }
+    ElMessage.error('自动游戏失败: ' + (err.message || '未知错误'))
+  }
+}
+
 // 生命周期
 onMounted(() => {
   loadGame()
@@ -579,6 +755,9 @@ onMounted(() => {
 onUnmounted(() => {
   if (ws) {
     ws.close()
+  }
+  if (autoGameInterval) {
+    clearInterval(autoGameInterval)
   }
 })
 </script>
@@ -937,5 +1116,24 @@ onUnmounted(() => {
 
 .log-content::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
+}
+
+/* AI控制样式 */
+.ai-mode-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.ai-mode-section :deep(.el-switch__label) {
+  color: #fff;
+}
+
+.ai-mode-section :deep(.el-switch__label.is-active) {
+  color: #67C23A;
 }
 </style>
