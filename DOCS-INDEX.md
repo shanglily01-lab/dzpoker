@@ -108,6 +108,24 @@
 - Docker Compose文件说明
 - 环境变量说明
 
+#### [TROUBLESHOOTING.md](TROUBLESHOOTING.md) ⭐⭐⭐⭐⭐
+**适用人群**: 所有人
+**最后更新**: 2026-01-12
+**文档大小**: 17KB
+**阅读时间**: 20分钟
+**内容摘要**:
+- 快速诊断步骤（3步检查）
+- 常见错误解决方案
+  - 502 Bad Gateway（5种方案）
+  - 数据库连接失败
+  - 端口被占用
+  - 前端无法连接后端
+  - Redis连接失败
+- 完整健康检查脚本
+- 服务状态检查
+- 网络/数据库/前端/性能问题排查
+- 常用修复命令速查
+
 ### 技术文档
 
 #### [系统架构设计.md](系统架构设计.md) ⭐⭐⭐⭐⭐
@@ -201,8 +219,10 @@
 - [QUICK-START.md](QUICK-START.md) - 快速部署
 - [README-DEPLOYMENT.md](README-DEPLOYMENT.md) - 详细部署
 - [DEPLOYMENT-CHECKLIST.md](DEPLOYMENT-CHECKLIST.md) - 验证清单
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - 故障排查 ⭐
 - [部署文件使用说明.md](部署文件使用说明.md) - 工具说明
 - `restart.sh` - 重启工具
+- `update-backend.sh` - 后端更新工具
 
 #### 🏗️ 架构师
 - [系统架构设计.md](系统架构设计.md) - 架构设计
@@ -271,6 +291,12 @@
 **"如何重启服务？"**
 → [QUICK-START.md](QUICK-START.md) 的"常用命令"部分
 
+**"遇到502错误怎么办？"**
+→ [TROUBLESHOOTING.md](TROUBLESHOOTING.md) 的"错误1: 502 Bad Gateway"部分
+
+**"服务启动失败如何排查？"**
+→ [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+
 **"有什么已知问题？"**
 → [CHANGELOG.md](CHANGELOG.md) 的"已知问题"部分
 
@@ -279,10 +305,10 @@
 ## 📊 文档统计
 
 ### 总体统计
-- **文档总数**: 12个
-- **总字数**: ~150,000字
-- **总大小**: ~210KB
-- **总阅读时间**: ~3.5小时
+- **文档总数**: 13个
+- **总字数**: ~167,000字
+- **总大小**: ~227KB
+- **总阅读时间**: ~3.8小时
 
 ### 按类型统计
 | 类型 | 数量 | 总大小 |
@@ -290,7 +316,7 @@
 | 说明文档 | 3 | 39KB |
 | 架构文档 | 3 | 126KB |
 | 需求文档 | 1 | 16KB |
-| 部署文档 | 4 | 39KB |
+| 部署文档 | 5 | 56KB |
 | 更新文档 | 2 | 18KB |
 
 ### 质量评估
