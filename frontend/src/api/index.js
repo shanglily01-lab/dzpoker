@@ -88,4 +88,13 @@ export const getPlayers = (params) => {
   return api.get('/players', { params })
 }
 
+// 游戏统计API
+export const getGameStats = () => {
+  return api.get('/games/stats')
+}
+
+export const listGames = (params) => {
+  return api.get('/games/list', { params })
+}
+
 export default api

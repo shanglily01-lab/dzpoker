@@ -298,6 +298,69 @@ async def showdown(game_id: str):
     return result
 
 
+@router.get("/stats")
+async def get_game_stats():
+    """获取游戏统计数据"""
+    total_games = len(games)
+    active_games = sum(1 for g in games.values() if g.state not in [GameState.WAITING, GameState.FINISHED])
+    finished_games = sum(1 for g in games.values() if g.state == GameState.FINISHED)
+
+    # 统计总玩家数（去重）
+    all_players = set()
+    total_hands = 0
+    total_pot = 0
+
+    for game in games.values():
+        for player in game.players:
+            all_players.add(player.player_id)
+        if game.state != GameState.WAITING:
+            total_hands += 1
+        total_pot += game.pot
+
+    return {
+        "total_games": total_games,
+        "active_games": active_games,
+        "finished_games": finished_games,
+        "total_players": len(all_players),
+        "total_hands": total_hands,
+        "total_pot": total_pot
+    }
+
+
+@router.get("/list")
+async def list_games(limit: int = 10, state: str = None):
+    """获取游戏列表"""
+    game_list = []
+
+    for game_id, game in games.items():
+        # 状态过滤
+        if state and game.state.value != state:
+            continue
+
+        game_info = {
+            "game_id": game_id,
+            "num_players": len(game.players),
+            "state": game.state.value,
+            "pot": game.pot,
+            "current_bet": game.current_bet,
+            "blind": game.blind,
+            "players": [
+                {
+                    "player_id": p.player_id,
+                    "chips": p.chips,
+                    "is_active": p.is_active
+                }
+                for p in game.players
+            ]
+        }
+        game_list.append(game_info)
+
+    # 按创建时间排序（最新的在前）
+    game_list.reverse()
+
+    return game_list[:limit]
+
+
 @router.websocket("/ws/{game_id}")
 async def game_websocket(websocket: WebSocket, game_id: str):
     """游戏WebSocket连接"""

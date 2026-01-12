@@ -1,6 +1,12 @@
 <template>
-  <div class="dashboard">
-    <h2>控制台</h2>
+  <div class="dashboard" v-loading="loading">
+    <div class="dashboard-header">
+      <h2>控制台</h2>
+      <el-button @click="refreshData" :loading="loading" type="primary" plain>
+        <el-icon><Refresh /></el-icon>
+        刷新数据
+      </el-button>
+    </div>
 
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stats-row">
@@ -93,7 +99,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { createGame as apiCreateGame } from '@/api'
+import { Refresh } from '@element-plus/icons-vue'
+import { createGame as apiCreateGame, getGameStats, listGames } from '@/api'
 
 const router = useRouter()
 
@@ -106,6 +113,7 @@ const stats = reactive({
 
 const recentGames = ref([])
 const showCreateGame = ref(false)
+const loading = ref(false)
 
 const gameForm = reactive({
   numPlayers: 6,
@@ -114,10 +122,16 @@ const gameForm = reactive({
 })
 
 const getStatusType = (status) => {
-  if (status === 'waiting') return 'info'
-  if (status === 'playing') return 'warning'
-  if (status === 'finished') return 'success'
-  return 'info'
+  const stateMap = {
+    'waiting': 'info',
+    'preflop': 'warning',
+    'flop': 'warning',
+    'turn': 'warning',
+    'river': 'warning',
+    'showdown': 'warning',
+    'finished': 'success'
+  }
+  return stateMap[status] || 'info'
 }
 
 const enterGame = (gameId) => {
@@ -134,9 +148,53 @@ const createGame = async () => {
 
     ElMessage.success('游戏创建成功')
     showCreateGame.value = false
+
+    // 刷新数据
+    await refreshData()
+
     router.push(`/game/${res.game_id}`)
   } catch (err) {
-    ElMessage.error('创建失败')
+    ElMessage.error('创建失败: ' + (err.message || '未知错误'))
+  }
+}
+
+const loadStats = async () => {
+  try {
+    const data = await getGameStats()
+    stats.totalGames = data.total_games
+    stats.totalPlayers = data.total_players
+    stats.activeGames = data.active_games
+    stats.totalHands = data.total_hands
+  } catch (err) {
+    console.error('加载统计数据失败:', err)
+  }
+}
+
+const loadRecentGames = async () => {
+  try {
+    const data = await listGames({ limit: 10 })
+    recentGames.value = data.map(game => ({
+      game_id: game.game_id,
+      num_players: game.num_players,
+      status: game.state,
+      pot: game.pot
+    }))
+  } catch (err) {
+    console.error('加载游戏列表失败:', err)
+  }
+}
+
+const refreshData = async () => {
+  loading.value = true
+  try {
+    await Promise.all([
+      loadStats(),
+      loadRecentGames()
+    ])
+  } catch (err) {
+    console.error('刷新数据失败:', err)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -148,12 +206,14 @@ const exportData = () => {
   ElMessage.info('数据导出功能开发中...')
 }
 
-onMounted(() => {
-  // 模拟数据
-  stats.totalGames = 128
-  stats.totalPlayers = 45
-  stats.activeGames = 3
-  stats.totalHands = 2456
+onMounted(async () => {
+  await refreshData()
+
+  // 每30秒自动刷新一次
+  setInterval(() => {
+    loadStats()
+    loadRecentGames()
+  }, 30000)
 })
 </script>
 
@@ -163,8 +223,15 @@ onMounted(() => {
   margin: 0 auto;
 }
 
-.dashboard h2 {
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
+}
+
+.dashboard-header h2 {
+  margin: 0;
   color: #e94560;
 }
 
