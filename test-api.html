@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 测试工具</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 { color: #333; margin-top: 0; }
+        h2 { color: #666; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #45a049; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .error { background: #f44336; }
+        .error:hover { background: #da190b; }
+        .info { background: #2196F3; }
+        .info:hover { background: #0b7dda; }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+            border-left: 4px solid #4CAF50;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.success { background: #4CAF50; color: white; }
+        .status.error { background: #f44336; color: white; }
+        .status.pending { background: #ff9800; color: white; }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+        }
+        .endpoint-test {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 德州扑克 API 测试工具</h1>
+        <p>服务器: <strong id="server-url">http://13.212.252.171</strong></p>
+        <label>
+            后端端口: <input type="number" id="backend-port" value="8000" style="width: 100px;">
+        </label>
+        <label>
+            前端端口: <input type="number" id="frontend-port" value="3000" style="width: 100px;">
+        </label>
+    </div>
+
+    <div class="container">
+        <h2>1. 健康检查</h2>
+        <button onclick="testHealth()">测试 /health</button>
+        <button onclick="testRoot()">测试 / (根路径)</button>
+        <div id="health-result"></div>
+    </div>
+
+    <div class="container">
+        <h2>2. 游戏管理</h2>
+        <button onclick="createGame()">创建游戏</button>
+        <button onclick="startGame()" id="start-btn" disabled>开始游戏</button>
+        <button onclick="getGame()" id="get-btn" disabled>获取游戏状态</button>
+        <div>当前游戏 ID: <strong id="current-game-id">无</strong></div>
+        <div id="game-result"></div>
+    </div>
+
+    <div class="container">
+        <h2>3. AI 功能测试</h2>
+        <button onclick="testAIAction()" id="ai-btn" disabled>测试 AI 单步动作</button>
+        <button onclick="testAIAction10()" id="ai10-btn" disabled>执行 10 次 AI 动作</button>
+        <div id="ai-result"></div>
+    </div>
+
+    <div class="container">
+        <h2>4. 端点存在性检查</h2>
+        <button onclick="checkEndpoints()">检查所有端点</button>
+        <div id="endpoints-result"></div>
+    </div>
+
+    <script>
+        let currentGameId = null;
+        const SERVER = 'http://13.212.252.171';
+
+        function getBackendURL() {
+            const port = document.getElementById('backend-port').value;
+            return `${SERVER}:${port}`;
+        }
+
+        function getFrontendURL() {
+            const port = document.getElementById('frontend-port').value;
+            return `${SERVER}:${port}`;
+        }
+
+        async function testHealth() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.innerHTML = '<span class="status pending">测试中...</span>';
+
+            try {
+                const response = await fetch(`${getBackendURL()}/health`);
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <span class="status success">✓ 成功</span>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <span class="status error">✗ 失败</span>
+                    <pre>${err.message}</pre>
+                `;
+            }
+        }
+
+        async function testRoot() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.innerHTML = '<span class="status pending">测试中...</span>';
+
+            try {
+                const response = await fetch(`${getBackendURL()}/`);
+                const data = await response.json();
+                resultDiv.innerHTML = `
+                    <span class="status success">✓ 成功</span>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <span class="status error">✗ 失败</span>
+                    <pre>${err.message}</pre>
+                `;
+            }
+        }
+
+        async function createGame() {
+            const resultDiv = document.getElementById('game-result');
+            resultDiv.innerHTML = '<span class="status pending">创建中...</span>';
+
+            try {
+                const response = await fetch(`${getBackendURL()}/api/games`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        num_players: 4,
+                        small_blind: 10,
+                        big_blind: 20
+                    })
+                });
+                const data = await response.json();
+                currentGameId = data.game_id;
+                document.getElementById('current-game-id').textContent = currentGameId;
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('get-btn').disabled = false;
+                document.getElementById('ai-btn').disabled = false;
+                document.getElementById('ai10-btn').disabled = false;
+
+                resultDiv.innerHTML = `
+                    <span class="status success">✓ 创建成功</span>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <span class="status error">✗ 失败</span>
+                    <pre>${err.message}</pre>
+                `;
+            }
+        }
+
+        async function startGame() {
+            if (!currentGameId) {
+                alert('请先创建游戏');
+                return;
+            }
+
+            const resultDiv = document.getElementById('game-result');
+            resultDiv.innerHTML = '<span class="status pending">开始中...</span>';
+
+            try {
+                const response = await fetch(`${getBackendURL()}/api/games/${currentGameId}/start`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <span class="status success">✓ 游戏已开始</span>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <span class="status error">✗ 失败</span>
+                    <pre>${err.message}</pre>
+                `;
+            }
+        }
+
+        async function getGame() {
+            if (!currentGameId) {
+                alert('请先创建游戏');
+                return;
+            }
+
+            const resultDiv = document.getElementById('game-result');
+            resultDiv.innerHTML = '<span class="status pending">获取中...</span>';
+
+            try {
+                const response = await fetch(`${getBackendURL()}/api/games/${currentGameId}`);
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <span class="status success">✓ 获取成功</span>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <span class="status error">✗ 失败</span>
+                    <pre>${err.message}</pre>
+                `;
+            }
+        }
+
+        async function testAIAction() {
+            if (!currentGameId) {
+                alert('请先创建游戏');
+                return;
+            }
+
+            const resultDiv = document.getElementById('ai-result');
+            resultDiv.innerHTML = '<span class="status pending">执行 AI 动作中...</span>';
+
+            try {
+                const response = await fetch(`${getBackendURL()}/api/games/${currentGameId}/ai-action`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <span class="status success">✓ AI 动作成功</span>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <span class="status error">✗ 失败</span>
+                    <pre>${err.message}</pre>
+                `;
+            }
+        }
+
+        async function testAIAction10() {
+            if (!currentGameId) {
+                alert('请先创建游戏');
+                return;
+            }
+
+            const resultDiv = document.getElementById('ai-result');
+            resultDiv.innerHTML = '<span class="status pending">执行 10 次 AI 动作中...</span>';
+
+            let results = [];
+            for (let i = 0; i < 10; i++) {
+                try {
+                    const response = await fetch(`${getBackendURL()}/api/games/${currentGameId}/ai-action`, {
+                        method: 'POST'
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        results.push({ step: i + 1, error: `HTTP ${response.status}` });
+                        break;
+                    }
+
+                    const data = await response.json();
+                    results.push({ step: i + 1, success: true, action: data.action, player: data.player_id });
+
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch (err) {
+                    results.push({ step: i + 1, error: err.message });
+                    break;
+                }
+            }
+
+            resultDiv.innerHTML = `
+                <span class="status ${results.every(r => r.success) ? 'success' : 'error'}">
+                    ${results.every(r => r.success) ? '✓' : '✗'} 完成
+                </span>
+                <pre>${JSON.stringify(results, null, 2)}</pre>
+            `;
+        }
+
+        async function checkEndpoints() {
+            const resultDiv = document.getElementById('endpoints-result');
+            resultDiv.innerHTML = '<span class="status pending">检查中...</span>';
+
+            const endpoints = [
+                { method: 'GET', path: '/', name: '根路径' },
+                { method: 'GET', path: '/health', name: '健康检查' },
+                { method: 'GET', path: '/api/games/stats', name: '游戏统计' },
+                { method: 'POST', path: '/api/games', name: '创建游戏', body: {num_players: 2, small_blind: 5, big_blind: 10} },
+            ];
+
+            let html = '<div>';
+            for (const endpoint of endpoints) {
+                try {
+                    const options = { method: endpoint.method };
+                    if (endpoint.body) {
+                        options.headers = { 'Content-Type': 'application/json' };
+                        options.body = JSON.stringify(endpoint.body);
+                    }
+
+                    const response = await fetch(`${getBackendURL()}${endpoint.path}`, options);
+                    const status = response.ok ? 'success' : 'error';
+                    const icon = response.ok ? '✓' : '✗';
+
+                    html += `
+                        <div class="endpoint-test">
+                            <span class="status ${status}">${icon}</span>
+                            <strong>${endpoint.method} ${endpoint.path}</strong> (${endpoint.name})
+                            <br>状态码: ${response.status}
+                        </div>
+                    `;
+                } catch (err) {
+                    html += `
+                        <div class="endpoint-test">
+                            <span class="status error">✗</span>
+                            <strong>${endpoint.method} ${endpoint.path}</strong> (${endpoint.name})
+                            <br>错误: ${err.message}
+                        </div>
+                    `;
+                }
+            }
+            html += '</div>';
+
+            resultDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
