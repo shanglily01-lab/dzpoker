@@ -199,7 +199,7 @@ const refreshData = async () => {
 }
 
 const runSimulation = () => {
-  ElMessage.info('模拟测试功能开发中...')
+  router.push('/simulation')
 }
 
 const exportData = () => {

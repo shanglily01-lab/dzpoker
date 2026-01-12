@@ -97,4 +97,16 @@ export const listGames = (params) => {
   return api.get('/games/list', { params })
 }
 
+// ==================== 模拟相关 ====================
+
+export const autoPlayGame = (gameId, speed = 1.0) => {
+  return api.post(`/simulation/${gameId}/auto-play`, null, {
+    params: { speed }
+  })
+}
+
+export const singleAIAction = (gameId) => {
+  return api.post(`/simulation/${gameId}/single-action`)
+}
+
 export default api
