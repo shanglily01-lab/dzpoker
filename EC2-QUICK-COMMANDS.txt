@@ -1,0 +1,84 @@
+========================================
+  EC2 快速修复命令（复制粘贴）
+========================================
+
+# 1. SSH 连接
+ssh user@13.212.252.171
+cd dzpoker
+
+# 2. 拉取最新代码
+git pull origin master
+
+# 3. 验证更新
+git log -1 --oneline
+grep -n "def get_current_player" backend/app/core/poker.py
+
+# 4. 清理 Python 缓存
+find backend -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
+find backend -type f -name "*.pyc" -delete 2>/dev/null
+
+# 5. 重新构建和启动
+docker-compose down
+docker-compose build --no-cache api
+docker-compose up -d
+
+# 6. 等待启动
+sleep 10
+
+# 7. 检查状态
+docker-compose ps
+docker logs api --tail 50
+
+# 8. 测试 API（分步执行）
+# 8a. 创建游戏
+curl -X POST http://localhost:8000/api/games \
+  -H "Content-Type: application/json" \
+  -d '{"num_players": 4, "small_blind": 10, "big_blind": 20}'
+
+# 复制上面返回的 game_id，然后替换下面的 YOUR_GAME_ID
+
+# 8b. 开始游戏
+GAME_ID="YOUR_GAME_ID"
+curl -X POST http://localhost:8000/api/games/$GAME_ID/start
+
+# 8c. 测试 AI 动作（关键！）
+curl -X POST http://localhost:8000/api/games/$GAME_ID/ai-action
+
+# 如果返回 JSON（包含 success、player_id、action 等），说明修复成功！
+# 如果返回 Internal Server Error，查看日志：
+docker logs api --tail 100 | grep -i error
+
+========================================
+  一键完整脚本（跳过确认）
+========================================
+
+cd dzpoker && \
+git pull origin master && \
+find backend -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null && \
+find backend -type f -name "*.pyc" -delete 2>/dev/null && \
+docker-compose down && \
+docker-compose build --no-cache api && \
+docker-compose up -d && \
+echo "等待服务启动..." && \
+sleep 10 && \
+echo "======================================" && \
+echo "容器状态:" && \
+docker-compose ps && \
+echo "======================================" && \
+echo "后端日志（最近 30 行）:" && \
+docker logs api --tail 30
+
+========================================
+  验证导入（如果还有问题）
+========================================
+
+docker exec -it api python3 -c "
+from app.core.poker import PokerGame
+game = PokerGame('test')
+print('✓ PokerGame imported')
+print('✓ Has get_current_player:', hasattr(game, 'get_current_player'))
+if hasattr(game, 'get_current_player'):
+    print('✓ Method callable:', callable(game.get_current_player))
+"
+
+========================================
