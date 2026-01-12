@@ -220,7 +220,8 @@ import {
   dealCards as apiDealCards,
   dealFlop as apiDealFlop,
   dealTurn as apiDealTurn,
-  dealRiver as apiDealRiver
+  dealRiver as apiDealRiver,
+  playerAction as apiPlayerAction
 } from '@/api'
 
 // 子组件
@@ -535,19 +536,13 @@ const executeShowdown = async () => {
 
 const playerAction = async (action, amount = 0) => {
   try {
-    const response = await fetch(
-      `http://${window.location.hostname}:8000/api/games/${gameId}/action/${currentPlayer.value}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, amount })
-      }
-    )
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.detail)
+    const actionData = {
+      player_id: currentPlayer.value,
+      action: action,
+      amount: amount || undefined
     }
+
+    const result = await apiPlayerAction(gameId, actionData)
 
     const actionText = {
       'fold': '弃牌',
@@ -558,9 +553,19 @@ const playerAction = async (action, amount = 0) => {
     }[action] || action
 
     addLog(`✓ 你执行了 ${actionText}${amount > 0 ? ` (${formatChips(amount)})` : ''}`)
-    await loadGame()
+
+    // 更新游戏状态
+    if (result.game_state) {
+      gameState.value = result.game_state
+    } else {
+      await loadGame()
+    }
+
+    ElMessage.success(`${actionText}成功`)
   } catch (err) {
-    ElMessage.error(`操作失败: ${err.message}`)
+    const errorMsg = err.response?.data?.detail || err.message || '操作失败'
+    ElMessage.error(`操作失败: ${errorMsg}`)
+    console.error('Player action error:', err)
   }
 }
 
