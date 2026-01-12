@@ -302,6 +302,35 @@ class PokerGame:
                 return player
         return None
 
+    def get_current_player(self) -> Optional[PlayerState]:
+        """获取当前应该行动的玩家"""
+        if not self.players:
+            return None
+
+        # 找到所有活跃且未all-in的玩家
+        active_players = [p for p in self.players if p.is_active and not p.is_all_in]
+
+        if len(active_players) == 0:
+            return None  # 没有活跃玩家
+
+        if len(active_players) == 1:
+            return None  # 只剩一个玩家，无需继续行动
+
+        # 从current_player_idx开始查找需要行动的玩家
+        for i in range(len(self.players)):
+            idx = (self.current_player_idx + i) % len(self.players)
+            player = self.players[idx]
+
+            # 玩家必须是活跃的且未all-in
+            if player.is_active and not player.is_all_in:
+                # 检查该玩家是否需要行动：
+                # 1. 还没有行动过，或
+                # 2. 当前下注小于全局下注（需要跟注或加注）
+                if not player.has_acted or player.current_bet < self.current_bet:
+                    return player
+
+        return None  # 所有玩家都已完成行动
+
     def _next_player(self):
         """移动到下一个玩家"""
         for _ in range(len(self.players)):
