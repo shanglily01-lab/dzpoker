@@ -106,7 +106,7 @@ export const autoPlayGame = (gameId, speed = 1.0) => {
 }
 
 export const singleAIAction = (gameId) => {
-  return api.post(`/simulation/${gameId}/single-action`)
+  return api.post(`/games/${gameId}/ai-action`)
 }
 
 export default api

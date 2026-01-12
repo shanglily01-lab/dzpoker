@@ -9,6 +9,7 @@ from ..schemas import (
 )
 from ..core.poker import PokerGame, GameState
 from ..ai.smart_dealer import smart_dealer
+from ..ai.decision_maker import ai_decision_maker
 
 router = APIRouter(prefix="/api/games", tags=["games"])
 
@@ -296,6 +297,75 @@ async def showdown(game_id: str):
     })
 
     return result
+
+
+@router.post("/{game_id}/ai-action")
+async def ai_single_action(game_id: str):
+    """
+    让当前玩家执行一次AI决策
+
+    用于前端自动游戏功能
+    """
+    if game_id not in games:
+        raise HTTPException(status_code=404, detail="游戏不存在")
+
+    game = games[game_id]
+    current_player = game.get_current_player()
+
+    if not current_player:
+        raise HTTPException(status_code=400, detail="没有当前玩家")
+
+    # 分配玩家类型（如果还没有）
+    if not hasattr(game, '_player_types'):
+        game._player_types = {}
+
+    if current_player.player_id not in game._player_types:
+        game._player_types[current_player.player_id] = ai_decision_maker.assign_player_type(
+            current_player.player_id
+        )
+
+    player_type = game._player_types[current_player.player_id]
+
+    # AI决策
+    action, amount = ai_decision_maker.make_decision(
+        player_id=current_player.player_id,
+        player_type=player_type,
+        hole_cards=current_player.hole_cards,
+        community_cards=game.community_cards,
+        current_bet=game.current_bet,
+        player_bet=current_player.current_bet,
+        player_chips=current_player.chips,
+        pot=game.pot,
+        game_state=game.state.value,
+        position=current_player.position
+    )
+
+    # 执行动作
+    try:
+        result = game.player_action(
+            current_player.player_id,
+            action,
+            amount or 0
+        )
+
+        response = {
+            "success": True,
+            "player_id": current_player.player_id,
+            "player_type": player_type,
+            "action": action,
+            "amount": amount or 0,
+            "game_state": game.get_state()
+        }
+
+        # 广播AI动作
+        await ws_manager.broadcast(game_id, {
+            "type": "player_action",
+            "data": response
+        })
+
+        return response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/stats")
