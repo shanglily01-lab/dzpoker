@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\n添加Amazon Linux部署脚本和完整部署文档\n\n新增部署工具:\n- deploy-amazon-linux.sh: 全自动部署脚本，支持Amazon Linux 2/2023\n- quick-deploy.sh: 快速部署脚本，适用于已安装Docker的环境\n- docker-compose.prod.yml: 生产环境Docker Compose配置\n\n新增配置文件:\n- nginx/nginx.conf: Nginx反向代理配置，支持WebSocket\n- .dockerignore: Docker构建优化配置\n\n新增文档:\n- QUICK-START.md: 快速开始指南，3种部署方式详解\n- README-DEPLOYMENT.md: 详细部署文档，包含故障排查和性能优化\n- DEPLOYMENT-CHECKLIST.md: 完整部署检查清单\n- 部署文件使用说明.md: 中文部署文件说明和使用指南\n\n主要特性:\n✅ 一键自动化部署，10分钟完成\n✅ 支持从Git克隆或手动上传代码\n✅ 自动安装Docker和Docker Compose\n✅ 自动配置防火墙和安全设置\n✅ 可选安装Nginx反向代理\n✅ 自动健康检查和验证\n✅ 完整的安全加固建议\n✅ 详细的故障排查指南\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(cat:*)",
+      "Bash(xargs ls:*)",
+      "Bash(docker-compose ps:*)"
+    ]
+  }
+}
