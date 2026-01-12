@@ -240,7 +240,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   SuccessFilled, CircleCloseFilled, Timer, CloseBold, Check,
   CircleCheckFilled, Top, Lightning, User, DocumentCopy
@@ -417,7 +417,23 @@ const loadGame = async () => {
     gameState.value = data
     addLog('✓ 游戏状态已刷新')
   } catch (err) {
-    ElMessage.error('加载游戏失败: ' + err.message)
+    if (err.response?.status === 404) {
+      ElMessageBox.confirm(
+        '游戏不存在或已过期（服务器重启后游戏数据会丢失）',
+        '游戏不存在',
+        {
+          confirmButtonText: '返回首页',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      ).then(() => {
+        router.push('/')
+      }).catch(() => {
+        // 用户点击取消
+      })
+    } else {
+      ElMessage.error('加载游戏失败: ' + err.message)
+    }
   }
 }
 
