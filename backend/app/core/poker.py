@@ -393,9 +393,13 @@ class PokerGame:
 
     def _advance_state(self):
         """推进游戏状态"""
-        active_count = sum(1 for p in self.players if p.is_active)
+        # 统计活跃且未all-in的玩家数量（与 _next_player() 的逻辑一致）
+        active_players = [p for p in self.players if p.is_active and not p.is_all_in]
+        active_count = len(active_players)
+        total_active = sum(1 for p in self.players if p.is_active)  # 包括all-in的
+        print(f"[Advance] Called: active_not_allin={active_count}, total_active={total_active}, state={self.state.value}")
 
-        # 如果只剩一个或零个活跃玩家，直接结束并分配底池
+        # 如果只剩一个或零个活跃且未all-in的玩家，直接结束并分配底池
         if active_count <= 1:
             print(f"[Advance] Only {active_count} active player(s), ending hand and distributing pot")
 
@@ -425,6 +429,7 @@ class PokerGame:
 
             self.state = GameState.FINISHED
             self.current_player_idx = -1  # 没有当前玩家
+            print(f"[Advance] Set current_player_idx to -1, state is now {self.state.value}")
             return
 
         # 正常推进游戏阶段
