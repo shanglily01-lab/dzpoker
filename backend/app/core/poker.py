@@ -389,11 +389,22 @@ class PokerGame:
         player_hands = []
         for player in self.players:
             if player.is_active or player.is_all_in:
-                hand_rank, hand_values = HandEvaluator.evaluate_hand(
-                    player.hole_cards,
-                    self.community_cards
-                )
-                hand_description = HandEvaluator.hand_to_string(hand_rank, hand_values)
+                # 检查玩家是否有底牌
+                if not player.hole_cards or len(player.hole_cards) != 2:
+                    raise ValueError(f"玩家 {player.player_id} 没有有效的底牌")
+
+                # 检查是否有足够的公共牌
+                if len(self.community_cards) < 5:
+                    raise ValueError(f"公共牌不足（当前 {len(self.community_cards)} 张，需要 5 张）")
+
+                try:
+                    hand_rank, hand_values = HandEvaluator.evaluate_hand(
+                        player.hole_cards,
+                        self.community_cards
+                    )
+                    hand_description = HandEvaluator.hand_to_string(hand_rank, hand_values)
+                except Exception as e:
+                    raise ValueError(f"评估玩家 {player.player_id} 手牌时出错: {str(e)}")
 
                 player_hands.append({
                     "player": player,

@@ -293,7 +293,18 @@ async def showdown(game_id: str):
     try:
         result = game.showdown()
     except ValueError as e:
+        # 记录错误详情
+        print(f"Showdown ValueError: {str(e)}")
+        print(f"Game state: {game.state.value}")
+        print(f"Community cards: {len(game.community_cards)}")
+        print(f"Players: {[(p.player_id, p.is_active, p.is_all_in, len(p.hole_cards)) for p in game.players]}")
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # 记录未预期的错误
+        import traceback
+        print(f"Showdown unexpected error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"摊牌时发生错误: {str(e)}")
 
     # 广播摊牌结果
     await ws_manager.broadcast(game_id, {
