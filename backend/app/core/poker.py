@@ -348,11 +348,16 @@ class PokerGame:
 
         # 检查是否进入下一阶段
         print(f"[Next] No next player found, checking if betting round complete...")
+        print(f"[Next] Player states: {[(p.player_id, p.is_active, p.is_all_in, p.has_acted, p.current_bet) for p in self.players]}")
+        print(f"[Next] Current bet: {self.current_bet}")
+
         if self._is_betting_round_complete():
             print(f"[Next] Advancing state from {self.state.value}")
             self._advance_state()
         else:
-            print(f"[Next] Betting round not complete, staying in {self.state.value}")
+            print(f"[Next] ERROR: Betting round not complete but no next player found!")
+            print(f"[Next] This should not happen - setting current_player to -1")
+            self.current_player_idx = -1
 
     def _is_betting_round_complete(self) -> bool:
         """检查下注轮是否结束"""
