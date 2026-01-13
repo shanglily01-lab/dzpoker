@@ -402,7 +402,7 @@ const canShowdown = computed(() => {
 
 const canExecuteAIAction = computed(() => {
   return ['preflop', 'flop', 'turn', 'river'].includes(gameState.value.state) &&
-         gameState.value.current_player !== undefined
+         gameState.value.current_player != null
 })
 
 const raiseAmount = ref(minRaise.value)
@@ -805,8 +805,8 @@ const runAutoGame = async () => {
 
       // 如果在下注阶段，执行AI动作
       if (['preflop', 'flop', 'turn', 'river'].includes(currentState)) {
-        // 只有当有当前玩家时才执行AI动作
-        if (gameState.value.current_player !== undefined) {
+        // 只有当有当前玩家时才执行AI动作（检查 null 和 undefined）
+        if (gameState.value.current_player != null) {
           try {
             await executeAISingleAction()
             await new Promise(resolve => setTimeout(resolve, 800))
@@ -825,7 +825,7 @@ const runAutoGame = async () => {
       // 检查是否需要摊牌（后端已自动处理状态推进和发牌）
       if (currentState === 'showdown') {
         const activePlayers = gameState.value.players?.filter(p => p.is_active || p.is_all_in) || []
-        if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
+        if (activePlayers.length > 1 && gameState.value.current_player == null) {
           await new Promise(resolve => setTimeout(resolve, 1000))
           await executeShowdown()
           addLog('🏆 自动摊牌')
