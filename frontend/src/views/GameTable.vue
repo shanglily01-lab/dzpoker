@@ -1,5 +1,32 @@
 <template>
   <div class="game-container">
+    <!-- 获胜动画弹窗 -->
+    <el-dialog
+      v-model="showWinnerDialog"
+      :show-close="false"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      width="500px"
+      center
+      class="winner-dialog"
+    >
+      <div class="winner-animation">
+        <div class="winner-trophy">🏆</div>
+        <div class="winner-title">本局获胜者</div>
+        <div class="winner-players">
+          <div v-for="winner in currentWinners" :key="winner.player_id" class="winner-item">
+            <div class="winner-name">玩家 P{{ winner.player_id }}</div>
+            <div class="winner-hand">{{ winner.hand_description }}</div>
+            <div class="winner-chips">
+              <span class="chips-icon">💰</span>
+              <span class="chips-amount">+{{ formatChips(winner.winnings) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="winner-countdown">{{ winnerCountdown }}秒后开始下一局...</div>
+      </div>
+    </el-dialog>
+
     <!-- 顶部信息栏 -->
     <div class="top-bar">
       <div class="game-info">
@@ -291,6 +318,11 @@ const showAdminControls = ref(true) // 开发时为true，生产环境应为fals
 const aiAutoMode = ref(false)
 const autoGameRunning = ref(false)
 let autoGameInterval = null
+
+// 获胜动画
+const showWinnerDialog = ref(false)
+const currentWinners = ref([])
+const winnerCountdown = ref(3)
 
 // 计算属性
 const stateDisplayName = computed(() => {
@@ -601,11 +633,35 @@ const executeShowdown = async () => {
     })
 
     gameState.value.state = 'finished'
-    ElMessage.success('游戏结束！')
     await loadGame()
+
+    // 显示获胜动画
+    if (autoGameRunning.value) {
+      await showWinnerAnimation(data.winners)
+    } else {
+      ElMessage.success('游戏结束！')
+    }
   } catch (err) {
     ElMessage.error('摊牌失败: ' + (err.response?.data?.detail || err.message))
   }
+}
+
+// 显示获胜动画
+const showWinnerAnimation = async (winners) => {
+  return new Promise((resolve) => {
+    currentWinners.value = winners
+    showWinnerDialog.value = true
+    winnerCountdown.value = 3
+
+    const countdownInterval = setInterval(() => {
+      winnerCountdown.value--
+      if (winnerCountdown.value <= 0) {
+        clearInterval(countdownInterval)
+        showWinnerDialog.value = false
+        resolve()
+      }
+    }, 1000)
+  })
 }
 
 const playerAction = async (action, amount = 0) => {
@@ -735,8 +791,7 @@ const runAutoGame = async () => {
           await executeShowdown()
           addLog('🏆 自动摊牌')
 
-          // 等待一下让玩家看到结果
-          await new Promise(resolve => setTimeout(resolve, 2000))
+          // executeShowdown 中已经显示动画并等待
 
           // 检查是否还有多个玩家有筹码，如果有则开始下一局
           await loadGame()
@@ -1180,5 +1235,134 @@ onUnmounted(() => {
 
 .ai-mode-section :deep(.el-switch__label.is-active) {
   color: #67C23A;
+}
+
+/* 获胜动画样式 */
+.winner-dialog :deep(.el-dialog) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.winner-dialog :deep(.el-dialog__body) {
+  padding: 40px 30px;
+}
+
+.winner-animation {
+  text-align: center;
+  color: white;
+}
+
+.winner-trophy {
+  font-size: 80px;
+  animation: trophy-bounce 0.8s ease-in-out;
+  margin-bottom: 20px;
+}
+
+@keyframes trophy-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.2);
+  }
+}
+
+.winner-title {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 30px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.winner-players {
+  margin-bottom: 30px;
+}
+
+.winner-item {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 15px;
+  padding: 20px;
+  margin-bottom: 15px;
+  backdrop-filter: blur(10px);
+  animation: slide-in 0.5s ease-out;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.winner-name {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.winner-hand {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 15px;
+}
+
+.winner-chips {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 32px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  animation: chips-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes chips-glow {
+  0%, 100% {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    text-shadow: 0 0 20px #ffd700, 2px 2px 4px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.chips-icon {
+  font-size: 36px;
+  animation: rotate-coin 2s linear infinite;
+}
+
+@keyframes rotate-coin {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+
+.chips-amount {
+  font-family: 'Arial', sans-serif;
+}
+
+.winner-countdown {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 20px;
+  animation: fade-pulse 1s ease-in-out infinite;
+}
+
+@keyframes fade-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 </style>
