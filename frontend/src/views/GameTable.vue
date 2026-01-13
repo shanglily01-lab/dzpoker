@@ -124,7 +124,7 @@
               <div class="raise-control">
                 <el-input-number
                   v-model="raiseAmount"
-                  :min="minRaise"
+                  :min="Math.min(minRaise, currentPlayerChips)"
                   :max="currentPlayerChips"
                   :step="gameState.blind || 10"
                   size="large"
