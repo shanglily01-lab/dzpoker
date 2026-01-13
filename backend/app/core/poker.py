@@ -613,6 +613,22 @@ class PokerGame:
             # 如果是调试模式或者游戏结束，包含底牌
             if include_hole_cards or self.state in [GameState.SHOWDOWN, GameState.FINISHED]:
                 player_dict["hole_cards"] = [c.to_dict() for c in p.hole_cards]
+
+            # 如果有公共牌且玩家有底牌，评估当前牌型
+            if (len(self.community_cards) >= 3 and
+                p.hole_cards and len(p.hole_cards) == 2 and
+                (p.is_active or p.is_all_in)):
+                try:
+                    from .hand_evaluator import HandEvaluator
+                    hand_rank, hand_values = HandEvaluator.evaluate_hand(
+                        p.hole_cards,
+                        self.community_cards
+                    )
+                    player_dict["current_hand"] = HandEvaluator.hand_to_string(hand_rank, hand_values)
+                    player_dict["hand_rank"] = hand_rank.name
+                except:
+                    pass  # 如果评估失败，不添加牌型信息
+
             players_data.append(player_dict)
 
         return {

@@ -43,6 +43,12 @@
       </template>
     </div>
 
+    <!-- 牌型显示 -->
+    <div v-if="player.current_hand && showCards" class="hand-type">
+      <span class="hand-icon">🎴</span>
+      <span class="hand-text">{{ player.current_hand }}</span>
+    </div>
+
     <!-- 状态指示器 -->
     <div class="player-status">
       <el-tag v-if="player.is_all_in" type="danger" size="small">All-In</el-tag>
@@ -230,6 +236,31 @@ const formatChips = (amount) => {
   );
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 牌型显示 */
+.hand-type {
+  text-align: center;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.hand-icon {
+  font-size: 14px;
+}
+
+.hand-text {
+  color: #ffd700;
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
 }
 
 /* 状态指示器 */
