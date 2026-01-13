@@ -658,8 +658,12 @@ const dealRiver = async () => {
 
 const executeShowdown = async () => {
   try {
+    console.log(`[Showdown] Called, current state: ${gameState.value.state}, current_player: ${gameState.value.current_player}`)
+
     // 先刷新状态，确保是最新的
     await loadGame()
+
+    console.log(`[Showdown] After refresh - state: ${gameState.value.state}, current_player: ${gameState.value.current_player}`)
 
     // 再次检查状态
     if (gameState.value.state !== 'showdown') {
@@ -667,6 +671,7 @@ const executeShowdown = async () => {
       return
     }
 
+    console.log('[Showdown] Calling API...')
     const data = await apiShowdown(gameId)
 
     data.winners.forEach(winner => {
@@ -849,8 +854,11 @@ const runAutoGame = async () => {
       if (currentState === 'showdown' && !isProcessingShowdown) {
         const activePlayers = gameState.value.players?.filter(p => p.is_active || p.is_all_in) || []
         // current_player 为 null, undefined, 或 -1 都表示没有当前玩家
+        console.log(`[Auto] Showdown check - activePlayers: ${activePlayers.length}, current_player: ${gameState.value.current_player}`)
+
         if (activePlayers.length > 1 && (gameState.value.current_player == null || gameState.value.current_player === -1)) {
           isProcessingShowdown = true
+          console.log('[Auto] Calling showdown...')
           await new Promise(resolve => setTimeout(resolve, 1000))
           await executeShowdown()
           addLog('🏆 自动摊牌')
