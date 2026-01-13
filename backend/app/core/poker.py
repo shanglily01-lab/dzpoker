@@ -340,6 +340,14 @@ class PokerGame:
     def _next_player(self):
         """移动到下一个玩家"""
         print(f"[Next] Called from position {self.current_player_idx}, state: {self.state.value}")
+
+        # 首先检查是否只剩一个或零个活跃玩家
+        active_players = [p for p in self.players if p.is_active and not p.is_all_in]
+        if len(active_players) <= 1:
+            print(f"[Next] Only {len(active_players)} active player(s) remaining, advancing state immediately")
+            self._advance_state()
+            return
+
         for _ in range(len(self.players)):
             self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
             player = self.players[self.current_player_idx]
