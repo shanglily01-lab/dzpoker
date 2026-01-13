@@ -126,8 +126,22 @@ class PokerGame:
 
     def start_hand(self):
         """开始一手牌"""
+        # 移除没有筹码的玩家
+        players_to_remove = [p for p in self.players if p.chips <= 0]
+        for player in players_to_remove:
+            print(f"[StartHand] Removing player {player.player_id} (no chips)")
+            self.players.remove(player)
+
+        # 重新分配位置
+        for idx, player in enumerate(self.players):
+            player.position = idx
+
         if len(self.players) < 2:
             raise ValueError("至少需要2名玩家")
+
+        # 调整庄家位置（确保在有效范围内）
+        if self.dealer_idx >= len(self.players):
+            self.dealer_idx = 0
 
         # 重置状态
         self.deck.reset()
