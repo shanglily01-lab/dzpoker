@@ -824,10 +824,10 @@ const runAutoGame = async () => {
 
       // 如果在下注阶段，执行AI动作
       if (['preflop', 'flop', 'turn', 'river'].includes(currentState)) {
-        // 只有当有当前玩家时才执行AI动作（检查 null 和 undefined）
+        // 只有当有当前玩家时才执行AI动作（检查 null, undefined, -1）
         console.log(`[Auto] State: ${currentState}, current_player: ${gameState.value.current_player}`)
 
-        if (gameState.value.current_player != null) {
+        if (gameState.value.current_player != null && gameState.value.current_player !== -1) {
           try {
             await executeAISingleAction()
             await new Promise(resolve => setTimeout(resolve, 800))
@@ -848,7 +848,8 @@ const runAutoGame = async () => {
       // 检查是否需要摊牌（后端已自动处理状态推进和发牌）
       if (currentState === 'showdown' && !isProcessingShowdown) {
         const activePlayers = gameState.value.players?.filter(p => p.is_active || p.is_all_in) || []
-        if (activePlayers.length > 1 && gameState.value.current_player == null) {
+        // current_player 为 null, undefined, 或 -1 都表示没有当前玩家
+        if (activePlayers.length > 1 && (gameState.value.current_player == null || gameState.value.current_player === -1)) {
           isProcessingShowdown = true
           await new Promise(resolve => setTimeout(resolve, 1000))
           await executeShowdown()
