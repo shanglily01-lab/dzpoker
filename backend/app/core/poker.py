@@ -307,6 +307,10 @@ class PokerGame:
         if not self.players:
             return None
 
+        # 如果 current_player_idx 是 -1，表示没有当前玩家（游戏已结束或进入摊牌）
+        if self.current_player_idx == -1:
+            return None
+
         # 找到所有活跃且未all-in的玩家
         active_players = [p for p in self.players if p.is_active and not p.is_all_in]
 
@@ -364,6 +368,7 @@ class PokerGame:
 
         if active_count <= 1:
             self.state = GameState.FINISHED
+            self.current_player_idx = -1  # 没有当前玩家
         elif self.state == GameState.PREFLOP:
             self.deal_flop()
         elif self.state == GameState.FLOP:
@@ -372,6 +377,7 @@ class PokerGame:
             self.deal_river()
         elif self.state == GameState.RIVER:
             self.state = GameState.SHOWDOWN
+            self.current_player_idx = -1  # 没有当前玩家
 
     def showdown(self) -> dict:
         """
