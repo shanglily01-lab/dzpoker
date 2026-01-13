@@ -774,12 +774,20 @@ const runAutoGame = async () => {
 
       // 如果在下注阶段，执行AI动作
       if (['preflop', 'flop', 'turn', 'river'].includes(currentState)) {
-        try {
-          await executeAISingleAction()
-          await new Promise(resolve => setTimeout(resolve, 800))
-        } catch (err) {
-          // 如果AI动作失败，可能是下注轮结束了
-          console.log('AI action failed, moving to next stage:', err)
+        // 只有当有当前玩家时才执行AI动作
+        if (gameState.value.current_player !== undefined) {
+          try {
+            await executeAISingleAction()
+            await new Promise(resolve => setTimeout(resolve, 800))
+          } catch (err) {
+            // 如果AI动作失败，刷新游戏状态
+            console.log('AI action failed:', err)
+            await loadGame()
+          }
+        } else {
+          // 没有当前玩家，可能是下注轮结束了，等待状态更新
+          await new Promise(resolve => setTimeout(resolve, 500))
+          await loadGame()
         }
       }
 
