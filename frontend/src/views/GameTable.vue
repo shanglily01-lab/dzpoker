@@ -735,14 +735,42 @@ const runAutoGame = async () => {
           await executeShowdown()
           addLog('🏆 自动摊牌')
 
-          // 游戏结束，停止自动游戏
-          autoGameRunning.value = false
-          clearInterval(autoGameInterval)
-          ElMessage.success('游戏结束！')
+          // 等待一下让玩家看到结果
+          await new Promise(resolve => setTimeout(resolve, 2000))
+
+          // 检查是否还有多个玩家有筹码，如果有则开始下一局
+          await loadGame()
+          const playersWithChips = gameState.value.players?.filter(p => p.chips > 0) || []
+
+          if (playersWithChips.length > 1) {
+            addLog('💫 开始下一局...')
+            await startGame()
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          } else {
+            // 只剩一个玩家有筹码，游戏彻底结束
+            const winner = playersWithChips[0]
+            if (winner) {
+              addLog(`🎊 玩家 P${winner.player_id} 赢得所有筹码！游戏结束！`)
+              ElMessage.success(`玩家 P${winner.player_id} 获得最终胜利！`)
+            }
+            autoGameRunning.value = false
+            clearInterval(autoGameInterval)
+          }
         }
       } else if (currentState === 'finished') {
-        autoGameRunning.value = false
-        clearInterval(autoGameInterval)
+        // 检查是否应该继续下一局
+        const playersWithChips = gameState.value.players?.filter(p => p.chips > 0) || []
+
+        if (playersWithChips.length > 1 && autoGameRunning.value) {
+          // 还有多个玩家，继续下一局
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          addLog('💫 开始下一局...')
+          await startGame()
+        } else {
+          // 游戏彻底结束
+          autoGameRunning.value = false
+          clearInterval(autoGameInterval)
+        }
       }
     }, 1000)
   } catch (err) {
