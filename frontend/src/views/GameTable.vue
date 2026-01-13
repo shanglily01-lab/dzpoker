@@ -252,6 +252,7 @@ import {
   dealFlop as apiDealFlop,
   dealTurn as apiDealTurn,
   dealRiver as apiDealRiver,
+  showdown as apiShowdown,
   playerAction as apiPlayerAction,
   singleAIAction
 } from '@/api'
@@ -593,10 +594,7 @@ const dealRiver = async () => {
 
 const executeShowdown = async () => {
   try {
-    const result = await fetch(`http://${window.location.hostname}:8000/api/games/${gameId}/showdown`, {
-      method: 'POST'
-    })
-    const data = await result.json()
+    const data = await apiShowdown(gameId)
 
     data.winners.forEach(winner => {
       addLog(`🏆 玩家 P${winner.player_id} 获胜！${winner.hand_description} - 赢得 ${formatChips(winner.winnings)}`)
@@ -606,7 +604,7 @@ const executeShowdown = async () => {
     ElMessage.success('游戏结束！')
     await loadGame()
   } catch (err) {
-    ElMessage.error('摊牌失败: ' + err.message)
+    ElMessage.error('摊牌失败: ' + (err.response?.data?.detail || err.message))
   }
 }
 

@@ -58,6 +58,10 @@ export const dealRiver = (gameId) => {
   return api.post(`/games/${gameId}/river`)
 }
 
+export const showdown = (gameId) => {
+  return api.post(`/games/${gameId}/showdown`)
+}
+
 export const playerAction = (gameId, action) => {
   return api.post(`/games/${gameId}/action`, action)
 }
