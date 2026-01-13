@@ -703,8 +703,7 @@ const runAutoGame = async () => {
     // 如果游戏还在等待状态，先开始游戏
     if (gameState.value.state === 'waiting') {
       await startGame()
-      await new Promise(resolve => setTimeout(resolve, 500))
-      await dealCards()
+      // startGame 已经发牌，不需要再调用 dealCards()
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
