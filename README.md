@@ -21,11 +21,36 @@ API文档: http://localhost:8000/docs
 
 ### EC2 部署
 
+有三种部署方式：
+
+#### 1. 快速重启（推荐，30秒）
+
+适用于小改动（如修改 Python/JS 代码）：
+
 ```bash
-ssh user@13.212.252.171
+ssh ubuntu@13.212.252.171
+cd dzpoker
+bash restart.sh
+```
+
+#### 2. 智能部署（2-7分钟）
+
+自动检测变化，只重新构建修改的服务：
+
+```bash
+ssh ubuntu@13.212.252.171
+cd dzpoker
+bash deploy.sh
+```
+
+#### 3. 完全重新构建（5-7分钟）
+
+适用于依赖变化（如 requirements.txt, package.json）：
+
+```bash
+ssh ubuntu@13.212.252.171
 cd dzpoker
 
-# 一键部署
 git fetch origin && \
 git reset --hard origin/master && \
 find backend -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null && \
@@ -33,8 +58,6 @@ docker-compose down && \
 docker-compose build --no-cache api frontend && \
 docker-compose up -d
 ```
-
-**预计时间**: 5-7 分钟
 
 ---
 
