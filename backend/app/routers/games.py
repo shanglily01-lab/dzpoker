@@ -381,6 +381,10 @@ async def ai_single_action(game_id: str):
 
         return response
     except ValueError as e:
+        # 记录详细错误信息
+        print(f"[AI Action Error] Player {current_player.player_id}, Action: {action}, Amount: {amount}")
+        print(f"[AI Action Error] Current bet: {game.current_bet}, Player bet: {current_player.current_bet}")
+        print(f"[AI Action Error] Error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
