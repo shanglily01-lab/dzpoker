@@ -340,9 +340,11 @@ class PokerGame:
         for _ in range(len(self.players)):
             self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
             player = self.players[self.current_player_idx]
-            if player.is_active and not player.is_all_in and not player.has_acted:
-                print(f"[Next] Moving to player {player.player_id} (position {self.current_player_idx})")
-                return
+            # 玩家需要行动：活跃、未all-in、且(未行动过 或 需要跟注)
+            if player.is_active and not player.is_all_in:
+                if not player.has_acted or player.current_bet < self.current_bet:
+                    print(f"[Next] Moving to player {player.player_id} (position {self.current_player_idx})")
+                    return
 
         # 检查是否进入下一阶段
         print(f"[Next] No next player found, checking if betting round complete...")
