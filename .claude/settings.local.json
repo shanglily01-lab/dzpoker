@@ -19,7 +19,8 @@
       "Bash(ssh ubuntu@13.212.252.171 \"cd dzpoker && docker logs api --tail 100 | grep -A 20 showdown\")",
       "Bash(docker-compose:*)",
       "Bash(docker compose:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(echo \"请在服务器上运行以下命令并提供输出：\nsudo docker-compose logs api --tail 50\n\n或者查找特定关键信息：\nsudo docker-compose logs api --tail 100 | grep -E ''\\\\[Next\\\\]|\\\\[Action\\\\]|\\\\[Advance\\\\]|current_player|State:|ERROR''\")"
     ]
   }
 }

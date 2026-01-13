@@ -884,11 +884,17 @@ const runAutoGame = async () => {
         const currentGamePlayer = gameState.value.current_player
 
         if (currentGamePlayer != null && currentGamePlayer !== -1) {
-          // 检查是否是用户玩家，如果是用户则跳过AI执行
+          // 检查是否是用户玩家，如果是用户则暂停自动模式
           if (currentGamePlayer === currentPlayer.value) {
-            console.log('[Auto] Current player is user, skipping AI action')
-            await new Promise(resolve => setTimeout(resolve, 500))
-            await loadGame()
+            console.log('[Auto] Current player is user, pausing auto mode')
+            autoGameRunning.value = false
+            if (autoGameInterval) {
+              clearInterval(autoGameInterval)
+              autoGameInterval = null
+            }
+            addLog('⏸️ 轮到您操作，自动游戏已暂停')
+            ElMessage.info('轮到您操作了，自动游戏已暂停')
+            return
           } else {
             // 是AI玩家，执行AI动作
             try {
