@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from .core.config import settings
 from .core.database import init_db
 from .core.redis import redis_client
-from .routers import games, players, simulation
+from .routers import games, players, simulation, analytics
 
 
 @asynccontextmanager
@@ -51,6 +51,7 @@ app.add_middleware(
 app.include_router(games.router)
 app.include_router(players.router)
 app.include_router(simulation.router)
+app.include_router(analytics.router)
 
 
 @app.get("/")
