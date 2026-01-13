@@ -483,8 +483,27 @@ class PokerGame:
 
         return winnings
 
-    def get_state(self) -> dict:
-        """获取游戏状态"""
+    def get_state(self, include_hole_cards: bool = False) -> dict:
+        """获取游戏状态
+
+        Args:
+            include_hole_cards: 是否包含所有玩家的底牌（调试用）
+        """
+        players_data = []
+        for p in self.players:
+            player_dict = {
+                "player_id": p.player_id,
+                "position": p.position,
+                "chips": p.chips,
+                "current_bet": p.current_bet,
+                "is_active": p.is_active,
+                "is_all_in": p.is_all_in
+            }
+            # 如果是调试模式或者游戏结束，包含底牌
+            if include_hole_cards or self.state in [GameState.SHOWDOWN, GameState.FINISHED]:
+                player_dict["hole_cards"] = [c.to_dict() for c in p.hole_cards]
+            players_data.append(player_dict)
+
         return {
             "game_id": self.game_id,
             "state": self.state.value,
@@ -493,15 +512,5 @@ class PokerGame:
             "current_player": self.current_player_idx,
             "dealer": self.dealer_idx,
             "community_cards": [c.to_dict() for c in self.community_cards],
-            "players": [
-                {
-                    "player_id": p.player_id,
-                    "position": p.position,
-                    "chips": p.chips,
-                    "current_bet": p.current_bet,
-                    "is_active": p.is_active,
-                    "is_all_in": p.is_all_in
-                }
-                for p in self.players
-            ]
+            "players": players_data
         }

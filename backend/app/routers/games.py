@@ -71,13 +71,18 @@ async def create_game(request: CreateGameRequest):
 
 
 @router.get("/{game_id}")
-async def get_game(game_id: str):
-    """获取游戏状态"""
+async def get_game(game_id: str, include_hole_cards: bool = False):
+    """获取游戏状态
+
+    Args:
+        game_id: 游戏ID
+        include_hole_cards: 是否包含所有玩家底牌（调试用）
+    """
     if game_id not in games:
         raise HTTPException(status_code=404, detail="游戏不存在")
 
     game = games[game_id]
-    return game.get_state()
+    return game.get_state(include_hole_cards=include_hole_cards)
 
 
 @router.post("/{game_id}/start")

@@ -414,6 +414,11 @@ watch(minRaise, (newVal) => {
   }
 })
 
+// 监听 showAllCards 变化，重新加载游戏状态
+watch(showAllCards, async () => {
+  await loadGame()
+})
+
 // 方法
 const formatChips = (amount) => {
   if (!amount) return '0'
@@ -462,8 +467,18 @@ const clearLogs = () => {
 
 const loadGame = async () => {
   try {
-    const data = await getGame(gameId)
+    const data = await getGame(gameId, showAllCards.value)
     gameState.value = data
+
+    // 如果返回了底牌数据，更新 playerCards
+    if (data.players) {
+      data.players.forEach(player => {
+        if (player.hole_cards) {
+          playerCards.value[player.player_id] = player.hole_cards
+        }
+      })
+    }
+
     addLog('✓ 游戏状态已刷新')
   } catch (err) {
     if (err.response?.status === 404) {
@@ -809,7 +824,7 @@ const runAutoGame = async () => {
 
       // 检查是否需要摊牌（后端已自动处理状态推进和发牌）
       if (currentState === 'showdown') {
-        const activePlayers = gameState.value.players?.filter(p => p.is_active) || []
+        const activePlayers = gameState.value.players?.filter(p => p.is_active || p.is_all_in) || []
         if (activePlayers.length > 1 && gameState.value.current_player === undefined) {
           await new Promise(resolve => setTimeout(resolve, 1000))
           await executeShowdown()

@@ -32,8 +32,10 @@ export const createGame = (data) => {
   return api.post('/games', data)
 }
 
-export const getGame = (gameId) => {
-  return api.get(`/games/${gameId}`)
+export const getGame = (gameId, includeHoleCards = false) => {
+  return api.get(`/games/${gameId}`, {
+    params: { include_hole_cards: includeHoleCards }
+  })
 }
 
 export const startGame = (gameId) => {

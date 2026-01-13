@@ -14,7 +14,11 @@
       "Bash(python test-auto-game-simple.py:*)",
       "Bash(curl -s http://13.212.252.171:8000/health)",
       "Bash(GAME_ID=\"815af3cf\":*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(git checkout:*)",
+      "Bash(ssh ubuntu@13.212.252.171 \"cd dzpoker && docker logs api --tail 100 | grep -A 20 showdown\")",
+      "Bash(docker-compose:*)",
+      "Bash(docker compose:*)"
     ]
   }
 }
