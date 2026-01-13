@@ -74,7 +74,7 @@ class HandEvaluator:
         """评估固定5张牌的牌型"""
 
         # 获取点数和花色
-        ranks = [HandEvaluator.RANK_VALUES[card.rank] for card in cards]
+        ranks = [card.value for card in cards]  # card.value 返回 2-14
         suits = [card.suit for card in cards]
 
         # 排序（从大到小）
