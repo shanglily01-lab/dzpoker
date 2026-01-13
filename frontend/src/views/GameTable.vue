@@ -331,6 +331,7 @@ const showAllCards = ref(true) // 默认显示所有手牌
 const aiAutoMode = ref(false)
 const autoGameRunning = ref(false)
 let autoGameInterval = null
+let isProcessingShowdown = false
 
 // 获胜动画
 const showWinnerDialog = ref(false)
@@ -657,6 +658,15 @@ const dealRiver = async () => {
 
 const executeShowdown = async () => {
   try {
+    // 先刷新状态，确保是最新的
+    await loadGame()
+
+    // 再次检查状态
+    if (gameState.value.state !== 'showdown') {
+      addLog(`⚠️ 游戏状态已变为 ${gameState.value.state}，跳过摊牌`)
+      return
+    }
+
     const data = await apiShowdown(gameId)
 
     data.winners.forEach(winner => {
@@ -673,7 +683,11 @@ const executeShowdown = async () => {
       ElMessage.success('游戏结束！')
     }
   } catch (err) {
-    ElMessage.error('摊牌失败: ' + (err.response?.data?.detail || err.message))
+    const errorMsg = err.response?.data?.detail || err.message
+    addLog(`❌ 摊牌失败: ${errorMsg}`)
+    if (err.response?.status !== 400) {
+      ElMessage.error('摊牌失败: ' + errorMsg)
+    }
   }
 }
 
@@ -828,12 +842,14 @@ const runAutoGame = async () => {
       }
 
       // 检查是否需要摊牌（后端已自动处理状态推进和发牌）
-      if (currentState === 'showdown') {
+      if (currentState === 'showdown' && !isProcessingShowdown) {
         const activePlayers = gameState.value.players?.filter(p => p.is_active || p.is_all_in) || []
         if (activePlayers.length > 1 && gameState.value.current_player == null) {
+          isProcessingShowdown = true
           await new Promise(resolve => setTimeout(resolve, 1000))
           await executeShowdown()
           addLog('🏆 自动摊牌')
+          isProcessingShowdown = false
 
           // executeShowdown 中已经显示动画并等待
 
