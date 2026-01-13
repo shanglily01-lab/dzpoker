@@ -6,24 +6,57 @@
       :show-close="false"
       :close-on-click-modal="false"
       :close-on-press-escape="false"
-      width="500px"
+      width="600px"
       center
       class="winner-dialog"
     >
       <div class="winner-animation">
-        <div class="winner-trophy">🏆</div>
-        <div class="winner-title">本局获胜者</div>
+        <!-- 粒子背景 -->
+        <div class="particles">
+          <div v-for="i in 30" :key="i" class="particle" :style="getParticleStyle(i)"></div>
+        </div>
+
+        <!-- 光环效果 -->
+        <div class="glow-ring"></div>
+
+        <!-- 奖杯 -->
+        <div class="winner-trophy">
+          <div class="trophy-shine"></div>
+          🏆
+        </div>
+
+        <!-- 标题 -->
+        <div class="winner-title">
+          <span class="title-text">WINNER</span>
+          <div class="title-underline"></div>
+        </div>
+
+        <!-- 获胜者信息 -->
         <div class="winner-players">
           <div v-for="winner in currentWinners" :key="winner.player_id" class="winner-item">
+            <div class="winner-badge">
+              <span class="badge-star">⭐</span>
+            </div>
             <div class="winner-name">玩家 P{{ winner.player_id }}</div>
-            <div class="winner-hand">{{ winner.hand_description }}</div>
+            <div class="winner-hand">
+              <span class="hand-icon">🎴</span>
+              {{ winner.hand_description }}
+            </div>
             <div class="winner-chips">
-              <span class="chips-icon">💰</span>
-              <span class="chips-amount">+{{ formatChips(winner.winnings) }}</span>
+              <span class="chips-plus">+</span>
+              <span class="chips-amount">{{ formatChips(winner.winnings) }}</span>
+              <span class="chips-icon">💎</span>
             </div>
           </div>
         </div>
-        <div class="winner-countdown">{{ winnerCountdown }}秒后开始下一局...</div>
+
+        <!-- 倒计时 -->
+        <div class="winner-countdown">
+          <div class="countdown-ring">
+            <span class="countdown-number">{{ winnerCountdown }}</span>
+          </div>
+          <div class="countdown-text">秒后开始下一局</div>
+        </div>
       </div>
     </el-dialog>
 
@@ -424,6 +457,22 @@ watch(showAllCards, async () => {
 const formatChips = (amount) => {
   if (!amount) return '0'
   return amount.toLocaleString()
+}
+
+const getParticleStyle = (index) => {
+  const size = Math.random() * 8 + 4
+  const left = Math.random() * 100
+  const animationDelay = Math.random() * 3
+  const animationDuration = Math.random() * 2 + 2
+
+  return {
+    width: `${size}px`,
+    height: `${size}px`,
+    left: `${left}%`,
+    bottom: '-10px',
+    animationDelay: `${animationDelay}s`,
+    animationDuration: `${animationDuration}s`
+  }
 }
 
 const getPlayerClasses = (player) => {
@@ -1312,76 +1361,305 @@ onUnmounted(() => {
 
 /* 获胜动画样式 */
 .winner-dialog :deep(.el-dialog) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  border-radius: 30px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8),
+              0 0 50px rgba(255, 215, 0, 0.2);
+  overflow: visible;
 }
 
 .winner-dialog :deep(.el-dialog__body) {
-  padding: 40px 30px;
+  padding: 50px 40px;
+  position: relative;
+  overflow: hidden;
 }
 
 .winner-animation {
   text-align: center;
   color: white;
+  position: relative;
+  z-index: 2;
 }
 
+/* 粒子效果 */
+.particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  background: radial-gradient(circle, #ffd700 0%, transparent 70%);
+  border-radius: 50%;
+  animation: float-particle 3s infinite ease-in-out;
+}
+
+@keyframes float-particle {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) scale(0);
+    opacity: 0;
+  }
+}
+
+/* 光环效果 */
+.glow-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(255, 215, 0, 0.1) 0%,
+    rgba(255, 215, 0, 0.05) 50%,
+    transparent 70%);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* 奖杯 */
 .winner-trophy {
-  font-size: 80px;
-  animation: trophy-bounce 0.8s ease-in-out;
-  margin-bottom: 20px;
+  position: relative;
+  font-size: 100px;
+  animation: trophy-bounce 1s ease-in-out, trophy-rotate 3s ease-in-out infinite 1s;
+  margin-bottom: 30px;
+  filter: drop-shadow(0 10px 30px rgba(255, 215, 0, 0.6));
+  display: inline-block;
+}
+
+.trophy-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.8) 50%,
+    transparent 100%);
+  animation: shine-sweep 2s ease-in-out infinite;
+  pointer-events: none;
 }
 
 @keyframes trophy-bounce {
-  0%, 100% {
-    transform: translateY(0) scale(1);
+  0% {
+    transform: translateY(0) scale(0);
+    opacity: 0;
   }
   50% {
-    transform: translateY(-20px) scale(1.2);
+    transform: translateY(-30px) scale(1.2);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
   }
 }
 
-.winner-title {
-  font-size: 28px;
-  font-weight: bold;
-  margin-bottom: 30px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+@keyframes trophy-rotate {
+  0%, 100% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(15deg);
+  }
 }
 
+@keyframes shine-sweep {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
+}
+
+/* 标题 */
+.winner-title {
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.title-text {
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #ffd700 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+  letter-spacing: 8px;
+  animation: title-glow 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes title-glow {
+  0%, 100% {
+    filter: brightness(1) drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+  }
+  50% {
+    filter: brightness(1.3) drop-shadow(0 0 20px rgba(255, 215, 0, 0.8));
+  }
+}
+
+.title-underline {
+  height: 4px;
+  width: 200px;
+  margin: 15px auto 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    #ffd700 50%,
+    transparent 100%);
+  border-radius: 2px;
+  animation: underline-expand 1s ease-out;
+}
+
+@keyframes underline-expand {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 200px;
+    opacity: 1;
+  }
+}
+
+/* 获胜者信息 */
 .winner-players {
-  margin-bottom: 30px;
+  margin-bottom: 40px;
 }
 
 .winner-item {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 15px;
-  padding: 20px;
-  margin-bottom: 15px;
+  background: linear-gradient(135deg,
+    rgba(255, 215, 0, 0.1) 0%,
+    rgba(255, 215, 0, 0.05) 100%);
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 20px;
   backdrop-filter: blur(10px);
-  animation: slide-in 0.5s ease-out;
+  animation: slide-in 0.6s ease-out;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.winner-item::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg,
+    transparent 30%,
+    rgba(255, 215, 0, 0.1) 50%,
+    transparent 70%);
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes slide-in {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(30px) scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+.winner-badge {
+  margin-bottom: 15px;
+}
+
+.badge-star {
+  font-size: 40px;
+  display: inline-block;
+  animation: star-spin 2s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+}
+
+@keyframes star-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
 .winner-name {
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: 8px;
+  font-size: 32px;
+  font-weight: 900;
+  margin-bottom: 15px;
+  color: #ffd700;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.5),
+               2px 2px 4px rgba(0, 0, 0, 0.5);
+  letter-spacing: 2px;
 }
 
 .winner-hand {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 15px;
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 20px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  display: inline-block;
+}
+
+.hand-icon {
+  font-size: 24px;
+  margin-right: 10px;
+  display: inline-block;
+  animation: card-flip 2s ease-in-out infinite;
+}
+
+@keyframes card-flip {
+  0%, 100% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(180deg);
+  }
 }
 
 .winner-chips {
@@ -1389,19 +1667,75 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  font-size: 32px;
-  font-weight: bold;
+  font-size: 42px;
+  font-weight: 900;
+  margin-top: 20px;
+  position: relative;
+}
+
+.chips-plus {
+  color: #4ade80;
+  font-size: 36px;
+  animation: plus-bounce 0.8s ease-out;
+}
+
+@keyframes plus-bounce {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.chips-amount {
   color: #ffd700;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
-  animation: chips-glow 1.5s ease-in-out infinite;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.8),
+               0 0 40px rgba(255, 215, 0, 0.4),
+               3px 3px 6px rgba(0, 0, 0, 0.5);
+  animation: chips-count 0.8s ease-out, chips-glow 2s ease-in-out infinite 0.8s;
+}
+
+@keyframes chips-count {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes chips-glow {
   0%, 100% {
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+    filter: brightness(1);
   }
   50% {
-    text-shadow: 0 0 20px #ffd700, 2px 2px 4px rgba(0, 0, 0, 0.4);
+    filter: brightness(1.3);
+  }
+}
+
+.chips-icon {
+  font-size: 40px;
+  animation: gem-sparkle 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
+}
+
+@keyframes gem-sparkle {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  75% {
+    transform: scale(1.1) rotate(5deg);
   }
 }
 
@@ -1424,18 +1758,64 @@ onUnmounted(() => {
 }
 
 .winner-countdown {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.8);
-  margin-top: 20px;
-  animation: fade-pulse 1s ease-in-out infinite;
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
 }
 
-@keyframes fade-pulse {
+.countdown-ring {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,
+    rgba(255, 215, 0, 0.2) 0%,
+    rgba(255, 215, 0, 0.1) 100%);
+  border: 3px solid rgba(255, 215, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.3),
+              inset 0 0 20px rgba(255, 215, 0, 0.1);
+  animation: ring-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ring-pulse {
   0%, 100% {
-    opacity: 1;
+    transform: scale(1);
+    border-color: rgba(255, 215, 0, 0.5);
   }
   50% {
-    opacity: 0.6;
+    transform: scale(1.05);
+    border-color: rgba(255, 215, 0, 0.8);
   }
+}
+
+.countdown-number {
+  font-size: 42px;
+  font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+  animation: number-tick 1s ease-in-out infinite;
+}
+
+@keyframes number-tick {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.countdown-text {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 1px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 </style>
