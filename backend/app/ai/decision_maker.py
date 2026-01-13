@@ -129,13 +129,13 @@ class AIDecisionMaker:
         if call_amount == 0:
             return self._decide_with_no_bet(
                 player_type, hole_cards, community_cards,
-                player_chips, pot, game_state
+                current_bet, player_chips, pot, game_state
             )
 
         # 需要跟注
         return self._decide_with_bet(
             player_type, hole_cards, community_cards,
-            call_amount, player_chips, pot, game_state
+            current_bet, call_amount, player_chips, pot, game_state
         )
 
     def _decide_with_no_bet(
@@ -143,6 +143,7 @@ class AIDecisionMaker:
         player_type: str,
         hole_cards: List[Card],
         community_cards: List[Card],
+        current_bet: int,
         chips: int,
         pot: int,
         game_state: str
@@ -154,13 +155,15 @@ class AIDecisionMaker:
         if player_type == "TAG":  # 紧凶型
             if hand_strength >= 0.7:
                 # 强牌：加注
-                raise_amount = int(pot * 0.75)
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * 0.75)
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             elif hand_strength >= 0.4:
                 # 中等牌：有时加注，有时过牌
                 if random.random() < 0.3:
-                    raise_amount = int(pot * 0.5)
-                    return ("raise", min(raise_amount, chips))
+                    raise_size = int(pot * 0.5)
+                    raise_to = current_bet + raise_size
+                    return ("raise", min(raise_to, current_bet + chips))
                 return ("check", None)
             else:
                 # 弱牌：过牌
@@ -169,36 +172,42 @@ class AIDecisionMaker:
         elif player_type == "LAG":  # 松凶型
             if hand_strength >= 0.5:
                 # 中等以上牌：加注
-                raise_amount = int(pot * random.uniform(0.5, 1.5))
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * random.uniform(0.5, 1.5))
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             elif random.random() < 0.4:
                 # 弱牌也有40%概率加注（诈唬）
-                raise_amount = int(pot * 0.6)
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * 0.6)
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             return ("check", None)
 
         elif player_type == "PASSIVE":  # 被动型
             if hand_strength >= 0.8:
                 # 非常强的牌才加注
-                raise_amount = int(pot * 0.4)
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * 0.4)
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             return ("check", None)
 
         elif player_type == "FISH":  # 鱼
             # 随机决策，经常看牌
             if random.random() < 0.2 and hand_strength >= 0.3:
-                raise_amount = int(pot * random.uniform(0.3, 1.0))
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * random.uniform(0.3, 1.0))
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             return ("check", None)
 
         else:  # REGULAR - 常规型
             if hand_strength >= 0.6:
-                raise_amount = int(pot * 0.6)
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * 0.6)
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             elif hand_strength >= 0.4:
                 if random.random() < 0.2:
-                    raise_amount = int(pot * 0.5)
-                    return ("raise", min(raise_amount, chips))
+                    raise_size = int(pot * 0.5)
+                    raise_to = current_bet + raise_size
+                    return ("raise", min(raise_to, current_bet + chips))
                 return ("check", None)
             return ("check", None)
 
@@ -207,6 +216,7 @@ class AIDecisionMaker:
         player_type: str,
         hole_cards: List[Card],
         community_cards: List[Card],
+        current_bet: int,
         call_amount: int,
         chips: int,
         pot: int,
@@ -220,8 +230,9 @@ class AIDecisionMaker:
         if player_type == "TAG":  # 紧凶型
             if hand_strength >= 0.8:
                 # 超强牌：加注
-                raise_amount = call_amount + int(pot * 0.8)
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * 0.8)
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             elif hand_strength >= 0.5 and pot_odds >= 2.0:
                 # 中等牌且赔率好：跟注
                 return ("call", None)
@@ -235,8 +246,9 @@ class AIDecisionMaker:
         elif player_type == "LAG":  # 松凶型
             if hand_strength >= 0.6:
                 # 较强牌：加注
-                raise_amount = call_amount + int(pot * random.uniform(0.8, 1.5))
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * random.uniform(0.8, 1.5))
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             elif hand_strength >= 0.3:
                 # 中等牌：跟注
                 return ("call", None)
@@ -245,16 +257,18 @@ class AIDecisionMaker:
                 if random.random() < 0.5:
                     return ("call", None)
                 else:
-                    raise_amount = call_amount + int(pot * 0.7)
-                    return ("raise", min(raise_amount, chips))
+                    raise_size = int(pot * 0.7)
+                    raise_to = current_bet + raise_size
+                    return ("raise", min(raise_to, current_bet + chips))
             return ("fold", None)
 
         elif player_type == "PASSIVE":  # 被动型
             if hand_strength >= 0.7:
                 # 很强的牌才跟注，很少加注
                 if random.random() < 0.2:
-                    raise_amount = call_amount + int(pot * 0.5)
-                    return ("raise", min(raise_amount, chips))
+                    raise_size = int(pot * 0.5)
+                    raise_to = current_bet + raise_size
+                    return ("raise", min(raise_to, current_bet + chips))
                 return ("call", None)
             elif hand_strength >= 0.4 and pot_odds >= 3.0:
                 # 中等牌且赔率很好：跟注
@@ -266,15 +280,17 @@ class AIDecisionMaker:
             if hand_strength >= 0.2 or random.random() < 0.6:
                 if random.random() < 0.1:
                     # 偶尔加注
-                    raise_amount = call_amount + int(pot * random.uniform(0.5, 1.2))
-                    return ("raise", min(raise_amount, chips))
+                    raise_size = int(pot * random.uniform(0.5, 1.2))
+                    raise_to = current_bet + raise_size
+                    return ("raise", min(raise_to, current_bet + chips))
                 return ("call", None)
             return ("fold", None)
 
         else:  # REGULAR - 常规型
             if hand_strength >= 0.7:
-                raise_amount = call_amount + int(pot * 0.7)
-                return ("raise", min(raise_amount, chips))
+                raise_size = int(pot * 0.7)
+                raise_to = current_bet + raise_size
+                return ("raise", min(raise_to, current_bet + chips))
             elif hand_strength >= 0.5 or (hand_strength >= 0.3 and pot_odds >= 2.5):
                 return ("call", None)
             return ("fold", None)
