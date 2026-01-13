@@ -504,11 +504,19 @@ class PokerGame:
         if not player_hands:
             raise ValueError("没有玩家参与摊牌")
 
+        # 打印所有玩家手牌评估结果
+        print(f"[Showdown] Evaluating {len(player_hands)} players:")
+        for ph in player_hands:
+            print(f"  Player {ph['player'].player_id}: {ph['description']} - Rank={ph['rank'].value}, Values={ph['values']}")
+            print(f"    Hole cards: {[str(c) for c in ph['player'].hole_cards]}")
+
         # 找出获胜者（可能有多个平局）
         player_hands.sort(
             key=lambda x: (x["rank"], x["values"]),
             reverse=True
         )
+
+        print(f"[Showdown] After sorting, winner is Player {player_hands[0]['player'].player_id}")
 
         winners = [player_hands[0]]
         best_rank = player_hands[0]["rank"]
