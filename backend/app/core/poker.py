@@ -341,25 +341,34 @@ class PokerGame:
             self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
             player = self.players[self.current_player_idx]
             if player.is_active and not player.is_all_in and not player.has_acted:
+                print(f"[Next] Moving to player {player.player_id} (position {self.current_player_idx})")
                 return
 
         # 检查是否进入下一阶段
+        print(f"[Next] No next player found, checking if betting round complete...")
         if self._is_betting_round_complete():
+            print(f"[Next] Advancing state from {self.state.value}")
             self._advance_state()
+        else:
+            print(f"[Next] Betting round not complete, staying in {self.state.value}")
 
     def _is_betting_round_complete(self) -> bool:
         """检查下注轮是否结束"""
         active_players = [p for p in self.players if p.is_active and not p.is_all_in]
 
         if len(active_players) <= 1:
+            print(f"[Betting] Round complete: only {len(active_players)} active player(s)")
             return True
 
         for player in active_players:
             if not player.has_acted:
+                print(f"[Betting] Round NOT complete: player {player.player_id} has not acted")
                 return False
             if player.current_bet < self.current_bet:
+                print(f"[Betting] Round NOT complete: player {player.player_id} bet {player.current_bet} < {self.current_bet}")
                 return False
 
+        print(f"[Betting] Round complete: all {len(active_players)} players have acted and matched bet")
         return True
 
     def _advance_state(self):
@@ -367,15 +376,20 @@ class PokerGame:
         active_count = sum(1 for p in self.players if p.is_active)
 
         if active_count <= 1:
+            print(f"[Advance] Only {active_count} active, moving to FINISHED")
             self.state = GameState.FINISHED
             self.current_player_idx = -1  # 没有当前玩家
         elif self.state == GameState.PREFLOP:
+            print(f"[Advance] PREFLOP -> FLOP")
             self.deal_flop()
         elif self.state == GameState.FLOP:
+            print(f"[Advance] FLOP -> TURN")
             self.deal_turn()
         elif self.state == GameState.TURN:
+            print(f"[Advance] TURN -> RIVER")
             self.deal_river()
         elif self.state == GameState.RIVER:
+            print(f"[Advance] RIVER -> SHOWDOWN, setting current_player to -1")
             self.state = GameState.SHOWDOWN
             self.current_player_idx = -1  # 没有当前玩家
 
