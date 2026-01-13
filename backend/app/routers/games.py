@@ -1,13 +1,16 @@
 """游戏相关API路由"""
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Depends
 from typing import Dict, List
 import uuid
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..schemas import (
     CreateGameRequest, GameResponse, CardResponse,
     PlayerActionRequest, GameStateResponse
 )
 from ..core.poker import PokerGame, GameState
+from ..core.database import get_db
+from ..services.game_service import GameService
 from ..ai.smart_dealer import smart_dealer
 from ..ai.decision_maker import ai_decision_maker
 
@@ -86,7 +89,7 @@ async def get_game(game_id: str, include_hole_cards: bool = False):
 
 
 @router.post("/{game_id}/start")
-async def start_game(game_id: str):
+async def start_game(game_id: str, db: AsyncSession = Depends(get_db)):
     """开始游戏"""
     if game_id not in games:
         raise HTTPException(status_code=404, detail="游戏不存在")
@@ -97,6 +100,16 @@ async def start_game(game_id: str):
         game.start_hand()
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    # 创建游戏记录
+    try:
+        await GameService.create_game_record(db, game)
+        print(f"[Database] Game {game_id} record created")
+    except Exception as e:
+        # 数据库保存失败不影响游戏
+        import traceback
+        print(f"[Database] Failed to create game record: {str(e)}")
+        print(traceback.format_exc())
 
     # 广播游戏开始
     await ws_manager.broadcast(game_id, {
@@ -283,7 +296,7 @@ async def player_action(game_id: str, action: PlayerActionRequest):
 
 
 @router.post("/{game_id}/showdown")
-async def showdown(game_id: str):
+async def showdown(game_id: str, db: AsyncSession = Depends(get_db)):
     """执行摊牌并确定获胜者"""
     if game_id not in games:
         raise HTTPException(status_code=404, detail="游戏不存在")
@@ -305,6 +318,16 @@ async def showdown(game_id: str):
         print(f"Showdown unexpected error: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"摊牌时发生错误: {str(e)}")
+
+    # 保存游戏数据到数据库
+    try:
+        await GameService.finish_game(db, game, result["winners"])
+        print(f"[Database] Game {game_id} data saved successfully")
+    except Exception as e:
+        # 数据库保存失败不影响游戏结果
+        import traceback
+        print(f"[Database] Failed to save game data: {str(e)}")
+        print(traceback.format_exc())
 
     # 广播摊牌结果
     await ws_manager.broadcast(game_id, {
