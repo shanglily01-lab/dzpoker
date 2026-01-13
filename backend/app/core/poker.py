@@ -291,7 +291,9 @@ class PokerGame:
                         p.has_acted = False
 
         player.has_acted = True
+        print(f"[Action] Player {player_id} {action} completed, calling _next_player()")
         self._next_player()
+        print(f"[Action] _next_player() returned, current_player_idx now: {self.current_player_idx}")
 
         return result
 
@@ -337,6 +339,7 @@ class PokerGame:
 
     def _next_player(self):
         """移动到下一个玩家"""
+        print(f"[Next] Called from position {self.current_player_idx}, state: {self.state.value}")
         for _ in range(len(self.players)):
             self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
             player = self.players[self.current_player_idx]
