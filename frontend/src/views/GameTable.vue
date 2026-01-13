@@ -751,7 +751,12 @@ const executeAISingleAction = async () => {
       await loadGame()
     }
   } catch (err) {
-    ElMessage.error('AI执行失败: ' + (err.response?.data?.detail || err.message || '未知错误'))
+    // 只在非 400 错误时显示消息（400 表示没有当前玩家，是正常情况）
+    if (err.response?.status !== 400) {
+      ElMessage.error('AI执行失败: ' + (err.response?.data?.detail || err.message || '未知错误'))
+    }
+    // 重新抛出错误，让外层 catch 处理
+    throw err
   }
 }
 
