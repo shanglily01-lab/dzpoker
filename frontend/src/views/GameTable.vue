@@ -352,7 +352,8 @@ const logContainer = ref(null)
 let ws = null
 
 // 当前玩家ID（实际应从登录状态获取）
-const currentPlayer = ref(1)
+// 当前用户玩家ID（设置为0表示观察者模式，所有玩家由AI控制）
+const currentPlayer = ref(0)
 
 // 是否显示管理控制台
 const showAdminControls = ref(true) // 开发时为true，生产环境应为false
@@ -884,8 +885,8 @@ const runAutoGame = async () => {
         const currentGamePlayer = gameState.value.current_player
 
         if (currentGamePlayer != null && currentGamePlayer !== -1) {
-          // 检查是否是用户玩家，如果是用户则暂停自动模式
-          if (currentGamePlayer === currentPlayer.value) {
+          // 检查是否是用户玩家（currentPlayer=0表示观察者模式，所有玩家由AI控制）
+          if (currentPlayer.value !== 0 && currentGamePlayer === currentPlayer.value) {
             console.log('[Auto] Current player is user, pausing auto mode')
             autoGameRunning.value = false
             if (autoGameInterval) {
