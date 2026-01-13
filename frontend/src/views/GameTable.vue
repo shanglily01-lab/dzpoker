@@ -6,14 +6,14 @@
       :show-close="false"
       :close-on-click-modal="false"
       :close-on-press-escape="false"
-      width="600px"
-      center
+      width="380px"
+      top="10vh"
       class="winner-dialog"
     >
       <div class="winner-animation">
         <!-- 粒子背景 -->
         <div class="particles">
-          <div v-for="i in 30" :key="i" class="particle" :style="getParticleStyle(i)"></div>
+          <div v-for="i in 15" :key="i" class="particle" :style="getParticleStyle(i)"></div>
         </div>
 
         <!-- 光环效果 -->
@@ -1388,7 +1388,7 @@ onUnmounted(() => {
 }
 
 .winner-dialog :deep(.el-dialog__body) {
-  padding: 50px 40px;
+  padding: 25px 20px;
   position: relative;
   overflow: hidden;
 }
@@ -1465,10 +1465,10 @@ onUnmounted(() => {
 /* 奖杯 */
 .winner-trophy {
   position: relative;
-  font-size: 100px;
+  font-size: 60px;
   animation: trophy-bounce 1s ease-in-out, trophy-rotate 3s ease-in-out infinite 1s;
-  margin-bottom: 30px;
-  filter: drop-shadow(0 10px 30px rgba(255, 215, 0, 0.6));
+  margin-bottom: 15px;
+  filter: drop-shadow(0 5px 15px rgba(255, 215, 0, 0.6));
   display: inline-block;
 }
 
@@ -1520,19 +1520,19 @@ onUnmounted(() => {
 
 /* 标题 */
 .winner-title {
-  margin-bottom: 40px;
+  margin-bottom: 20px;
   position: relative;
 }
 
 .title-text {
-  font-size: 48px;
+  font-size: 32px;
   font-weight: 900;
   background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #ffd700 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
-  letter-spacing: 8px;
+  letter-spacing: 5px;
   animation: title-glow 2s ease-in-out infinite;
   display: inline-block;
 }
@@ -1547,9 +1547,9 @@ onUnmounted(() => {
 }
 
 .title-underline {
-  height: 4px;
-  width: 200px;
-  margin: 15px auto 0;
+  height: 3px;
+  width: 120px;
+  margin: 10px auto 0;
   background: linear-gradient(90deg,
     transparent 0%,
     #ffd700 50%,
@@ -1571,7 +1571,7 @@ onUnmounted(() => {
 
 /* 获胜者信息 */
 .winner-players {
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 .winner-item {
@@ -1579,9 +1579,9 @@ onUnmounted(() => {
     rgba(255, 215, 0, 0.1) 0%,
     rgba(255, 215, 0, 0.05) 100%);
   border: 2px solid rgba(255, 215, 0, 0.3);
-  border-radius: 20px;
-  padding: 30px;
-  margin-bottom: 20px;
+  border-radius: 15px;
+  padding: 15px 20px;
+  margin-bottom: 15px;
   backdrop-filter: blur(10px);
   animation: slide-in 0.6s ease-out;
   position: relative;
@@ -1625,11 +1625,11 @@ onUnmounted(() => {
 }
 
 .winner-badge {
-  margin-bottom: 15px;
+  margin-bottom: 8px;
 }
 
 .badge-star {
-  font-size: 40px;
+  font-size: 28px;
   display: inline-block;
   animation: star-spin 2s linear infinite;
   filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
@@ -1645,9 +1645,9 @@ onUnmounted(() => {
 }
 
 .winner-name {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 900;
-  margin-bottom: 15px;
+  margin-bottom: 8px;
   color: #ffd700;
   text-shadow: 0 0 20px rgba(255, 215, 0, 0.5),
                2px 2px 4px rgba(0, 0, 0, 0.5);
@@ -1655,10 +1655,10 @@ onUnmounted(() => {
 }
 
 .winner-hand {
-  font-size: 20px;
+  font-size: 16px;
   color: rgba(255, 255, 255, 0.95);
-  margin-bottom: 20px;
-  padding: 10px 20px;
+  margin-bottom: 12px;
+  padding: 8px 15px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
   display: inline-block;
@@ -1684,8 +1684,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  font-size: 42px;
+  gap: 8px;
+  font-size: 28px;
   font-weight: 900;
   margin-top: 20px;
   position: relative;
@@ -1693,7 +1693,7 @@ onUnmounted(() => {
 
 .chips-plus {
   color: #4ade80;
-  font-size: 36px;
+  font-size: 24px;
   animation: plus-bounce 0.8s ease-out;
 }
 
@@ -1776,16 +1776,16 @@ onUnmounted(() => {
 }
 
 .winner-countdown {
-  margin-top: 30px;
+  margin-top: 15px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .countdown-ring {
-  width: 80px;
-  height: 80px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: linear-gradient(135deg,
     rgba(255, 215, 0, 0.2) 0%,
@@ -1811,7 +1811,7 @@ onUnmounted(() => {
 }
 
 .countdown-number {
-  font-size: 42px;
+  font-size: 28px;
   font-weight: 900;
   color: #ffd700;
   text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
@@ -1831,7 +1831,7 @@ onUnmounted(() => {
 }
 
 .countdown-text {
-  font-size: 18px;
+  font-size: 14px;
   color: rgba(255, 255, 255, 0.9);
   letter-spacing: 1px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
