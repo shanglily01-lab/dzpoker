@@ -33,22 +33,25 @@ class AIDecisionMaker:
         score = 0.0
         card1, card2 = hole_cards
 
+        # 使用 value (2-14) 进行统一比较
+        val1, val2 = card1.value, card2.value
+
         # 1. 底牌对子
-        if card1.rank == card2.rank:
-            if card1.rank >= 10:  # JJ, QQ, KK, AA
+        if val1 == val2:
+            if val1 >= 11:  # JJ, QQ, KK, AA (11-14)
                 score += 0.8
-            elif card1.rank >= 7:  # 77-TT
+            elif val1 >= 7:  # 77-TT (7-10)
                 score += 0.6
-            else:  # 22-66
+            else:  # 22-66 (2-6)
                 score += 0.4
 
         # 2. 高牌
-        max_rank = max(card1.rank, card2.rank)
-        if max_rank == 14:  # A
+        max_val = max(val1, val2)
+        if max_val == 14:  # A
             score += 0.3
-        elif max_rank >= 12:  # K, Q
+        elif max_val >= 12:  # K, Q
             score += 0.2
-        elif max_rank >= 10:  # J, T
+        elif max_val >= 10:  # J, T
             score += 0.1
 
         # 3. 同花
@@ -56,7 +59,7 @@ class AIDecisionMaker:
             score += 0.2
 
         # 4. 连牌 (顺子听牌)
-        if abs(card1.rank - card2.rank) <= 4:
+        if abs(val1 - val2) <= 4:
             score += 0.1
 
         # 5. 如果有公共牌，评估改进
@@ -64,8 +67,8 @@ class AIDecisionMaker:
             all_cards = hole_cards + community_cards
 
             # 检查对子
-            ranks = [c.rank for c in all_cards]
-            if len(set(ranks)) < len(ranks):  # 有重复
+            values = [c.value for c in all_cards]
+            if len(set(values)) < len(values):  # 有重复
                 score += 0.3
 
             # 检查同花听牌
@@ -242,30 +245,30 @@ class AIDecisionMaker:
 
         # 根据玩家类型决策
         if player_type == "TAG":  # 紧凶型
-            if hand_strength >= 0.8:
+            if hand_strength >= 0.7:
                 # 超强牌：加注或 all-in
                 raise_size = int(pot * 0.8)
                 if raise_size <= chips - call_amount:
                     return ("raise", current_bet + raise_size)
                 return ("all_in", None)
-            elif hand_strength >= 0.5 and pot_odds >= 2.0:
+            elif hand_strength >= 0.4:
                 return ("call", None)
-            elif hand_strength >= 0.6:
+            elif hand_strength >= 0.25 and pot_odds >= 2.5:
                 return ("call", None)
             else:
                 return ("fold", None)
 
         elif player_type == "LAG":  # 松凶型
-            if hand_strength >= 0.6:
+            if hand_strength >= 0.5:
                 # 较强牌：加注或 all-in
                 raise_size = int(pot * random.uniform(0.8, 1.5))
                 if raise_size <= chips - call_amount:
                     return ("raise", current_bet + raise_size)
                 return ("all_in", None)
-            elif hand_strength >= 0.3:
+            elif hand_strength >= 0.25:
                 return ("call", None)
-            elif random.random() < 0.3:
-                if random.random() < 0.5:
+            elif random.random() < 0.4:
+                if random.random() < 0.6:
                     return ("call", None)
                 else:
                     raise_size = int(pot * 0.7)
@@ -275,14 +278,16 @@ class AIDecisionMaker:
             return ("fold", None)
 
         elif player_type == "PASSIVE":  # 被动型
-            if hand_strength >= 0.7:
+            if hand_strength >= 0.6:
                 if random.random() < 0.2:
                     raise_size = int(pot * 0.5)
                     if raise_size <= chips - call_amount:
                         return ("raise", current_bet + raise_size)
                     return ("all_in", None)
                 return ("call", None)
-            elif hand_strength >= 0.4 and pot_odds >= 3.0:
+            elif hand_strength >= 0.3:
+                return ("call", None)
+            elif hand_strength >= 0.2 and pot_odds >= 3.0:
                 return ("call", None)
             return ("fold", None)
 
@@ -297,12 +302,14 @@ class AIDecisionMaker:
             return ("fold", None)
 
         else:  # REGULAR - 常规型
-            if hand_strength >= 0.7:
+            if hand_strength >= 0.6:
                 raise_size = int(pot * 0.7)
                 if raise_size <= chips - call_amount:
                     return ("raise", current_bet + raise_size)
                 return ("all_in", None)
-            elif hand_strength >= 0.5 or (hand_strength >= 0.3 and pot_odds >= 2.5):
+            elif hand_strength >= 0.35:
+                return ("call", None)
+            elif hand_strength >= 0.2 and pot_odds >= 2.5:
                 return ("call", None)
             return ("fold", None)
 

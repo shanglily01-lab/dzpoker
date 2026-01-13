@@ -942,8 +942,8 @@ const runAutoGame = async () => {
           currentWinners.value = gameState.value.last_winners
           showWinnerDialog.value = true
 
-          // 等待动画播放完成（5秒倒计时）
-          await new Promise(resolve => setTimeout(resolve, 5000))
+          // 等待动画播放完成（3秒倒计时）
+          await new Promise(resolve => setTimeout(resolve, 3000))
           showWinnerDialog.value = false
           currentWinners.value = []
         }
