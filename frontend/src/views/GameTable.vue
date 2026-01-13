@@ -68,10 +68,15 @@
           {{ stateDisplayName }}
         </el-tag>
       </div>
-      <div class="connection-status">
-        <el-icon v-if="wsConnected" color="#67C23A"><SuccessFilled /></el-icon>
-        <el-icon v-else color="#F56C6C"><CircleCloseFilled /></el-icon>
-        {{ wsConnected ? '已连接' : '未连接' }}
+      <div class="top-bar-actions">
+        <el-button type="primary" @click="goToAnalytics" icon="DataAnalysis">
+          数据分析
+        </el-button>
+        <div class="connection-status">
+          <el-icon v-if="wsConnected" color="#67C23A"><SuccessFilled /></el-icon>
+          <el-icon v-else color="#F56C6C"><CircleCloseFilled /></el-icon>
+          {{ wsConnected ? '已连接' : '未连接' }}
+        </div>
       </div>
     </div>
 
@@ -309,11 +314,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   SuccessFilled, CircleCloseFilled, Timer, CloseBold, Check,
-  CircleCheckFilled, Top, Lightning, User, DocumentCopy
+  CircleCheckFilled, Top, Lightning, User, DocumentCopy, DataAnalysis
 } from '@element-plus/icons-vue'
 import {
   getGame,
@@ -332,6 +337,7 @@ import PlayingCard from '@/components/PlayingCard.vue'
 import PlayerSeat from '@/components/PlayerSeat.vue'
 
 const route = useRoute()
+const router = useRouter()
 const gameId = route.params.id
 
 // 状态
@@ -455,6 +461,10 @@ watch(showAllCards, async () => {
 })
 
 // 方法
+const goToAnalytics = () => {
+  router.push('/analytics')
+}
+
 const formatChips = (amount) => {
   if (!amount) return '0'
   return amount.toLocaleString()
@@ -1035,6 +1045,12 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 15px;
   backdrop-filter: blur(10px);
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
 }
 
 .game-info h2 {
