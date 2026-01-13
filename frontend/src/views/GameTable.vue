@@ -148,6 +148,16 @@
           <div v-if="showAdminControls" class="admin-controls">
             <el-divider>游戏控制台</el-divider>
 
+            <!-- 显示所有手牌开关 -->
+            <div class="admin-option" style="margin-bottom: 15px;">
+              <el-switch
+                v-model="showAllCards"
+                active-text="显示所有手牌"
+                inactive-text="隐藏其他玩家手牌"
+                style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+              />
+            </div>
+
             <!-- AI自动模式 -->
             <div class="ai-mode-section">
               <el-switch
@@ -314,6 +324,9 @@ const currentPlayer = ref(1)
 // 是否显示管理控制台
 const showAdminControls = ref(true) // 开发时为true，生产环境应为false
 
+// 是否显示所有玩家手牌
+const showAllCards = ref(true) // 默认显示所有手牌
+
 // AI自动模式
 const aiAutoMode = ref(false)
 const autoGameRunning = ref(false)
@@ -421,6 +434,9 @@ const getPlayerCards = (player) => {
 }
 
 const shouldShowCards = (player) => {
+  // 如果开启了显示所有手牌，始终显示
+  if (showAllCards.value) return true
+
   // 只显示当前玩家自己的牌，或者在showdown/finished状态显示所有牌
   return player.player_id === currentPlayer.value ||
          ['showdown', 'finished'].includes(gameState.value.state)
