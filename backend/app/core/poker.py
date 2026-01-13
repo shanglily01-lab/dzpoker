@@ -111,6 +111,7 @@ class PokerGame:
     current_player_idx: int = 0
     dealer_idx: int = 0
     state: GameState = GameState.WAITING
+    last_winners: List[dict] = field(default_factory=list)  # 存储上一手牌的获胜者信息
 
     def add_player(self, player_id: int, chips: float = 1000) -> PlayerState:
         """添加玩家"""
@@ -134,6 +135,7 @@ class PokerGame:
         self.community_cards = []
         self.pot = 0
         self.current_bet = 0
+        self.last_winners = []  # 清空上一手牌的获胜者信息
 
         # 重置玩家状态
         for player in self.players:
@@ -393,11 +395,40 @@ class PokerGame:
         """推进游戏状态"""
         active_count = sum(1 for p in self.players if p.is_active)
 
+        # 如果只剩一个或零个活跃玩家，直接结束并分配底池
         if active_count <= 1:
-            print(f"[Advance] Only {active_count} active, moving to FINISHED")
+            print(f"[Advance] Only {active_count} active player(s), ending hand and distributing pot")
+
+            # 找出获胜者（唯一活跃的玩家）
+            winner = None
+            for p in self.players:
+                if p.is_active:
+                    winner = p
+                    break
+
+            # 分配底池给获胜者并记录获胜信息
+            if winner:
+                winnings = self.pot
+                winner.chips += winnings
+                print(f"[Advance] Player {winner.player_id} wins pot of {winnings}")
+
+                # 存储获胜者信息供前端显示
+                self.last_winners = [{
+                    "player_id": winner.player_id,
+                    "hand_description": "其他玩家弃牌",
+                    "hand_rank": "WIN_BY_FOLD",
+                    "winnings": winnings,
+                    "hole_cards": [c.to_dict() for c in winner.hole_cards] if winner.hole_cards else []
+                }]
+
+                self.pot = 0
+
             self.state = GameState.FINISHED
             self.current_player_idx = -1  # 没有当前玩家
-        elif self.state == GameState.PREFLOP:
+            return
+
+        # 正常推进游戏阶段
+        if self.state == GameState.PREFLOP:
             print(f"[Advance] PREFLOP -> FLOP")
             self.deal_flop()
         elif self.state == GameState.FLOP:
@@ -478,21 +509,25 @@ class PokerGame:
         # 分配奖池
         winnings = self._distribute_pot([w["player"] for w in winners])
 
-        # 更新游戏状态
+        # 构建获胜者信息
+        winner_info = [
+            {
+                "player_id": w["player"].player_id,
+                "hand_description": w["description"],
+                "hand_rank": w["rank"].name,
+                "hole_cards": [c.to_dict() for c in w["player"].hole_cards],
+                "winnings": winnings[w["player"].player_id]
+            }
+            for w in winners
+        ]
+
+        # 更新游戏状态并存储获胜者信息
         self.state = GameState.FINISHED
+        self.last_winners = winner_info
 
         # 返回结果
         return {
-            "winners": [
-                {
-                    "player_id": w["player"].player_id,
-                    "hand_description": w["description"],
-                    "hand_rank": w["rank"].name,
-                    "hole_cards": [c.to_dict() for c in w["player"].hole_cards],
-                    "winnings": winnings[w["player"].player_id]
-                }
-                for w in winners
-            ],
+            "winners": winner_info,
             "all_hands": [
                 {
                     "player_id": h["player"].player_id,
@@ -561,5 +596,6 @@ class PokerGame:
             "current_player": self.current_player_idx,
             "dealer": self.dealer_idx,
             "community_cards": [c.to_dict() for c in self.community_cards],
-            "players": players_data
+            "players": players_data,
+            "last_winners": self.last_winners  # 包含上一手牌的获胜者信息
         }

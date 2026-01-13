@@ -935,16 +935,34 @@ const runAutoGame = async () => {
           }
         }
       } else if (currentState === 'finished') {
+        // 检查是否有获胜者信息需要显示
+        if (gameState.value.last_winners && gameState.value.last_winners.length > 0 && !showWinnerDialog.value) {
+          // 显示获胜者动画
+          console.log('[Auto] Showing winner animation from last_winners')
+          currentWinners.value = gameState.value.last_winners
+          showWinnerDialog.value = true
+
+          // 等待动画播放完成（5秒倒计时）
+          await new Promise(resolve => setTimeout(resolve, 5000))
+          showWinnerDialog.value = false
+          currentWinners.value = []
+        }
+
         // 检查是否应该继续下一局
         const playersWithChips = gameState.value.players?.filter(p => p.chips > 0) || []
 
         if (playersWithChips.length > 1 && autoGameRunning.value) {
           // 还有多个玩家，继续下一局
-          await new Promise(resolve => setTimeout(resolve, 2000))
+          await new Promise(resolve => setTimeout(resolve, 1000))
           addLog('💫 开始下一局...')
           await startGame()
         } else {
           // 游戏彻底结束
+          const winner = playersWithChips[0]
+          if (winner) {
+            addLog(`🎊 玩家 P${winner.player_id} 赢得所有筹码！游戏结束！`)
+            ElMessage.success(`玩家 P${winner.player_id} 获得最终胜利！`)
+          }
           autoGameRunning.value = false
           clearInterval(autoGameInterval)
         }
