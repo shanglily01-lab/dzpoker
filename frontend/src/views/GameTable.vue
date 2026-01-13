@@ -878,18 +878,28 @@ const runAutoGame = async () => {
 
       // 如果在下注阶段，执行AI动作
       if (['preflop', 'flop', 'turn', 'river'].includes(currentState)) {
-        // 只有当有当前玩家时才执行AI动作（检查 null, undefined, -1）
-        console.log(`[Auto] State: ${currentState}, current_player: ${gameState.value.current_player}`)
+        // 只有当有当前玩家且不是用户玩家时才执行AI动作
+        console.log(`[Auto] State: ${currentState}, current_player: ${gameState.value.current_player}, user player: ${currentPlayer.value}`)
 
-        if (gameState.value.current_player != null && gameState.value.current_player !== -1) {
-          try {
-            await executeAISingleAction()
-            await new Promise(resolve => setTimeout(resolve, 800))
-          } catch (err) {
-            // 如果AI动作失败，刷新游戏状态
-            console.log('[Auto] AI action failed, refreshing game state:', err.response?.data?.detail || err.message)
+        const currentGamePlayer = gameState.value.current_player
+
+        if (currentGamePlayer != null && currentGamePlayer !== -1) {
+          // 检查是否是用户玩家，如果是用户则跳过AI执行
+          if (currentGamePlayer === currentPlayer.value) {
+            console.log('[Auto] Current player is user, skipping AI action')
+            await new Promise(resolve => setTimeout(resolve, 500))
             await loadGame()
-            console.log(`[Auto] After refresh - State: ${gameState.value.state}, current_player: ${gameState.value.current_player}`)
+          } else {
+            // 是AI玩家，执行AI动作
+            try {
+              await executeAISingleAction()
+              await new Promise(resolve => setTimeout(resolve, 800))
+            } catch (err) {
+              // 如果AI动作失败，刷新游戏状态
+              console.log('[Auto] AI action failed, refreshing game state:', err.response?.data?.detail || err.message)
+              await loadGame()
+              console.log(`[Auto] After refresh - State: ${gameState.value.state}, current_player: ${gameState.value.current_player}`)
+            }
           }
         } else {
           // 没有当前玩家，可能是下注轮结束了，等待状态更新
