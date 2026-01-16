@@ -64,6 +64,10 @@ export const showdown = (gameId) => {
   return api.post(`/games/${gameId}/showdown`)
 }
 
+export const finishGame = (gameId) => {
+  return api.post(`/games/${gameId}/finish`)
+}
+
 export const playerAction = (gameId, action) => {
   return api.post(`/games/${gameId}/action`, action)
 }

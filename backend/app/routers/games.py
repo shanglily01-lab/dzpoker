@@ -338,6 +338,47 @@ async def showdown(game_id: str, db: AsyncSession = Depends(get_db)):
     return result
 
 
+@router.post("/{game_id}/finish")
+async def finish_game_route(game_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    结束游戏并保存数据（用于非showdown路径，如所有人弃牌）
+    """
+    if game_id not in games:
+        raise HTTPException(status_code=404, detail="游戏不存在")
+
+    game = games[game_id]
+
+    # 检查游戏是否已结束
+    if game.state.value != 'finished':
+        raise HTTPException(status_code=400, detail="游戏尚未结束")
+
+    # 获取获胜者信息（已在_advance_state中设置）
+    winners = game.last_winners if hasattr(game, 'last_winners') and game.last_winners else []
+
+    if not winners:
+        # 如果没有winners信息，尝试从当前状态推断
+        active_players = [p for p in game.players if p.is_active]
+        if len(active_players) == 1:
+            winner = active_players[0]
+            winners = [{
+                "player_id": winner.player_id,
+                "hand_description": "其他玩家弃牌",
+                "winnings": 0,  # 底池已经分配
+                "hole_cards": [c.to_dict() for c in winner.hole_cards] if winner.hole_cards else []
+            }]
+
+    # 保存游戏数据到数据库
+    try:
+        await GameService.finish_game(db, game, winners)
+        print(f"[Database] Game {game_id} finished and data saved successfully")
+        return {"success": True, "winners": winners}
+    except Exception as e:
+        import traceback
+        print(f"[Database] Failed to save finished game data: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"保存游戏数据失败: {str(e)}")
+
+
 @router.post("/{game_id}/ai-action")
 async def ai_single_action(game_id: str):
     """

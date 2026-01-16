@@ -20,7 +20,11 @@
       "Bash(docker-compose:*)",
       "Bash(docker compose:*)",
       "Bash(python:*)",
-      "Bash(echo \"请在服务器上运行以下命令并提供输出：\nsudo docker-compose logs api --tail 50\n\n或者查找特定关键信息：\nsudo docker-compose logs api --tail 100 | grep -E ''\\\\[Next\\\\]|\\\\[Action\\\\]|\\\\[Advance\\\\]|current_player|State:|ERROR''\")"
+      "Bash(echo \"请在服务器上运行以下命令并提供输出：\nsudo docker-compose logs api --tail 50\n\n或者查找特定关键信息：\nsudo docker-compose logs api --tail 100 | grep -E ''\\\\[Next\\\\]|\\\\[Action\\\\]|\\\\[Advance\\\\]|current_player|State:|ERROR''\")",
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)",
+      "Bash(git reset:*)",
+      "Bash(docker logs:*)"
     ]
   }
 }

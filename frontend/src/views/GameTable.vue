@@ -328,6 +328,7 @@ import {
   dealTurn as apiDealTurn,
   dealRiver as apiDealRiver,
   showdown as apiShowdown,
+  finishGame as apiFinishGame,
   playerAction as apiPlayerAction,
   singleAIAction
 } from '@/api'
@@ -962,6 +963,18 @@ const runAutoGame = async () => {
           }
         }
       } else if (currentState === 'finished') {
+        // 调用finish API保存游戏数据（只调用一次）
+        if (!isProcessingShowdown) {
+          isProcessingShowdown = true
+          try {
+            console.log('[Auto] Calling finish API to save game data...')
+            await apiFinishGame(gameId)
+            console.log('[Auto] Game data saved successfully')
+          } catch (err) {
+            console.error('[Auto] Failed to save game data:', err)
+          }
+        }
+
         // 检查是否有获胜者信息需要显示
         if (gameState.value.last_winners && gameState.value.last_winners.length > 0 && !showWinnerDialog.value) {
           // 显示获胜者动画
@@ -980,11 +993,13 @@ const runAutoGame = async () => {
 
         if (playersWithChips.length > 1 && autoGameRunning.value) {
           // 还有多个玩家，继续下一局
+          isProcessingShowdown = false  // 重置标志
           await new Promise(resolve => setTimeout(resolve, 1000))
           addLog('💫 开始下一局...')
           await startGame()
         } else {
           // 游戏彻底结束
+          isProcessingShowdown = false  // 重置标志
           const winner = playersWithChips[0]
           if (winner) {
             addLog(`🎊 玩家 P${winner.player_id} 赢得所有筹码！游戏结束！`)
