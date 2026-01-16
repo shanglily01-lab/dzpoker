@@ -232,8 +232,13 @@ class GameService:
             game_record = await GameService.create_game_record(db, game)
 
         # 保存每个玩家的手牌记录
+        saved_hands_count = 0
+        skipped_players_count = 0
+
         for player in game.players:
             if not player.hole_cards:
+                print(f"[GameService] Skipping player {player.player_id} - no hole cards")
+                skipped_players_count += 1
                 continue
 
             # 检查是否是获胜者
@@ -271,6 +276,9 @@ class GameService:
                 is_winner=is_winner
             )
 
+            saved_hands_count += 1
+            print(f"[GameService] Saved hand for player {player.player_id}")
+
             # 更新玩家统计
             await GameService.update_player_stats(
                 db=db,
@@ -279,6 +287,8 @@ class GameService:
                 profit=profit_loss,
                 played_hand=True
             )
+
+        print(f"[GameService] Total hands saved: {saved_hands_count}, skipped: {skipped_players_count}")
 
         # 更新游戏状态为已完成
         winner_id = winners[0]["player_id"] if len(winners) == 1 else None

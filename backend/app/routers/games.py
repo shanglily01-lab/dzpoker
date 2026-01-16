@@ -367,6 +367,13 @@ async def finish_game_route(game_id: str, db: AsyncSession = Depends(get_db)):
                 "hole_cards": [c.to_dict() for c in winner.hole_cards] if winner.hole_cards else []
             }]
 
+    # 打印玩家底牌信息用于调试
+    print(f"[Database Debug] Game {game_id} - Players hole cards:")
+    for player in game.players:
+        has_cards = player.hole_cards is not None and len(player.hole_cards) > 0
+        cards_str = str([f"{c.rank}{c.suit}" for c in player.hole_cards]) if has_cards else "None"
+        print(f"  Player {player.player_id}: has_hole_cards={has_cards}, cards={cards_str}")
+
     # 保存游戏数据到数据库
     try:
         await GameService.finish_game(db, game, winners)

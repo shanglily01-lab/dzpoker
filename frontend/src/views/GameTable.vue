@@ -373,6 +373,7 @@ const aiAutoMode = ref(false)
 const autoGameRunning = ref(false)
 let autoGameInterval = null
 let isProcessingShowdown = false
+let finishApiCalled = false  // 标记finish API是否已调用，避免重复调用
 
 // 获胜动画
 const showWinnerDialog = ref(false)
@@ -563,6 +564,19 @@ const loadGame = async () => {
   }
 }
 
+// 调用finish API保存游戏数据（当游戏因弃牌结束时）
+const callFinishApiIfNeeded = async () => {
+  try {
+    console.log('[Finish] Calling finish API to save game data...')
+    await apiFinishGame(gameId)
+    console.log('[Finish] Game data saved successfully')
+    addLog('💾 游戏数据已保存')
+  } catch (err) {
+    console.error('[Finish] Failed to save game data:', err)
+    addLog('⚠️ 保存游戏数据失败')
+  }
+}
+
 const connectWebSocket = () => {
   const wsUrl = `ws://${window.location.hostname}:8000/api/games/ws/${gameId}`
   ws = new WebSocket(wsUrl)
@@ -594,9 +608,10 @@ const connectWebSocket = () => {
   }
 }
 
-const handleWsMessage = (data) => {
+const handleWsMessage = async (data) => {
   if (data.type === 'game_started') {
     gameState.value = data.state
+    finishApiCalled = false  // 重置finish API标记
     addLog('🎮 游戏已开始！')
   } else if (data.type === 'cards_dealt') {
     // 保存玩家手牌
@@ -623,11 +638,19 @@ const handleWsMessage = (data) => {
       'all_in': 'All-in'
     }[data.data.action] || data.data.action
     addLog(`👤 玩家 P${data.data.player_id} ${actionText}`)
+
+    // 检查游戏是否因为弃牌而结束
+    if (data.data.game_state.state === 'finished' && !finishApiCalled) {
+      finishApiCalled = true
+      await callFinishApiIfNeeded()
+    }
   } else if (data.type === 'showdown') {
     data.data.winners.forEach(winner => {
       addLog(`🏆 玩家 P${winner.player_id} 获胜！${winner.hand_description} - 赢得 ${formatChips(winner.winnings)}`)
     })
     gameState.value.state = 'finished'
+    // showdown路径后端已经保存数据，不需要调用finish API
+    finishApiCalled = true
     ElMessage.success({
       message: '游戏结束！',
       duration: 3000
@@ -638,6 +661,7 @@ const handleWsMessage = (data) => {
 // API 调用
 const startGame = async () => {
   try {
+    finishApiCalled = false  // 重置finish API标记
     await apiStartGame(gameId)
     ElMessage.success('游戏已开始')
     await loadGame()
@@ -964,15 +988,10 @@ const runAutoGame = async () => {
         }
       } else if (currentState === 'finished') {
         // 调用finish API保存游戏数据（只调用一次）
-        if (!isProcessingShowdown) {
+        if (!isProcessingShowdown && !finishApiCalled) {
           isProcessingShowdown = true
-          try {
-            console.log('[Auto] Calling finish API to save game data...')
-            await apiFinishGame(gameId)
-            console.log('[Auto] Game data saved successfully')
-          } catch (err) {
-            console.error('[Auto] Failed to save game data:', err)
-          }
+          finishApiCalled = true
+          await callFinishApiIfNeeded()
         }
 
         // 检查是否有获胜者信息需要显示
