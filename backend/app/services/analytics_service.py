@@ -51,6 +51,14 @@ class AnalyticsService:
         total_result = await db.execute(total_query)
         total = total_result.scalar()
 
+        # 为每个游戏查询手牌数量（使用子查询确保准确）
+        from ..models import Hand
+        game_hands_counts = {}
+        for g in games:
+            hands_count_query = select(func.count(Hand.id)).where(Hand.game_id == g.id)
+            hands_count_result = await db.execute(hands_count_query)
+            game_hands_counts[g.id] = hands_count_result.scalar() or 0
+
         return {
             "games": [
                 {
@@ -65,7 +73,7 @@ class AnalyticsService:
                     "started_at": g.started_at.isoformat() if g.started_at else None,
                     "ended_at": g.ended_at.isoformat() if g.ended_at else None,
                     "duration": (g.ended_at - g.started_at).total_seconds() if g.ended_at and g.started_at else None,
-                    "hands_count": len(g.hands)
+                    "hands_count": game_hands_counts.get(g.id, 0)
                 }
                 for g in games
             ],
