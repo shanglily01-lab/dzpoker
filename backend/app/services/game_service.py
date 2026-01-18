@@ -27,19 +27,35 @@ class GameService:
         Returns:
             Game: 游戏记录
         """
-        game_record = Game(
-            game_uuid=game.game_id,
-            num_players=len(game.players),
-            small_blind=game.small_blind,
-            big_blind=game.big_blind,
-            total_pot=game.pot,
-            status="playing",
-            started_at=datetime.utcnow()
-        )
-        db.add(game_record)
-        await db.commit()
-        await db.refresh(game_record)
-        return game_record
+        try:
+            game_record = Game(
+                game_uuid=game.game_id,
+                num_players=len(game.players),
+                small_blind=game.small_blind,
+                big_blind=game.big_blind,
+                total_pot=game.pot,
+                status="playing",
+                started_at=datetime.utcnow()
+            )
+            db.add(game_record)
+            await db.commit()
+            await db.refresh(game_record)
+            print(f"[Database] Game {game.game_id} record created")
+            return game_record
+        except Exception as e:
+            # 如果记录已存在（重复key），回滚并查询现有记录
+            await db.rollback()
+            if "duplicate key" in str(e) or "UniqueViolation" in str(e):
+                print(f"[Database] Game {game.game_id} already exists, fetching existing record")
+                result = await db.execute(
+                    select(Game).where(Game.game_uuid == game.game_id)
+                )
+                existing_record = result.scalar_one()
+                return existing_record
+            else:
+                # 其他错误继续抛出
+                print(f"[Database] Failed to create game record: {e}")
+                raise
 
     @staticmethod
     async def update_game_status(
