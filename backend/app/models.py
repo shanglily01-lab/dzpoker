@@ -21,7 +21,6 @@ class Player(Base):
 
     # 关联
     stats = relationship("PlayerStats", back_populates="player", uselist=False)
-    hands = relationship("Hand", back_populates="player")
 
 
 class PlayerStats(Base):
