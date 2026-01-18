@@ -338,20 +338,18 @@ class PokerGame:
         if len(active_players) == 1:
             return None  # 只剩一个玩家，无需继续行动
 
-        # 从current_player_idx开始查找需要行动的玩家
-        for i in range(len(self.players)):
-            idx = (self.current_player_idx + i) % len(self.players)
-            player = self.players[idx]
+        # 直接返回current_player_idx指向的玩家
+        # _next_player()已经确保current_player_idx指向下一个需要行动的玩家
+        player = self.players[self.current_player_idx]
 
-            # 玩家必须是活跃的且未all-in
-            if player.is_active and not player.is_all_in:
-                # 检查该玩家是否需要行动：
-                # 1. 还没有行动过，或
-                # 2. 当前下注小于全局下注（需要跟注或加注）
-                if not player.has_acted or player.current_bet < self.current_bet:
-                    return player
+        # 验证该玩家确实需要行动
+        if player.is_active and not player.is_all_in:
+            if not player.has_acted or player.current_bet < self.current_bet:
+                return player
 
-        return None  # 所有玩家都已完成行动
+        # 如果当前玩家不需要行动，说明下注轮已结束
+        print(f"[GetCurrent] Player at current_player_idx={self.current_player_idx} doesn't need to act")
+        return None
 
     def _next_player(self):
         """移动到下一个玩家"""
