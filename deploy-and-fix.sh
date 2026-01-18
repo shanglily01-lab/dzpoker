@@ -7,14 +7,27 @@ echo "德州扑克系统 - 完整修复部署"
 echo "================================"
 echo ""
 
+# 检测使用 docker-compose 还是 docker compose
+if command -v docker-compose &> /dev/null; then
+    DC="docker-compose"
+    echo "使用 docker-compose 命令"
+elif docker compose version &> /dev/null; then
+    DC="docker compose"
+    echo "使用 docker compose 命令"
+else
+    echo "错误: 未找到 docker-compose 或 docker compose 命令"
+    exit 1
+fi
+echo ""
+
 # 1. 停止现有容器
 echo "[1/5] 停止现有容器..."
-docker compose down
+$DC down
 echo ""
 
 # 2. 重新构建前端（强制无缓存）
 echo "[2/5] 重新构建前端容器（无缓存，这可能需要几分钟）..."
-docker compose build --no-cache frontend
+$DC build --no-cache frontend
 if [ $? -ne 0 ]; then
     echo "错误: 前端构建失败！"
     exit 1
@@ -23,7 +36,7 @@ echo ""
 
 # 3. 重新构建后端
 echo "[3/5] 重新构建后端容器..."
-docker compose build --no-cache backend
+$DC build --no-cache backend
 if [ $? -ne 0 ]; then
     echo "错误: 后端构建失败！"
     exit 1
@@ -32,7 +45,7 @@ echo ""
 
 # 4. 启动所有服务
 echo "[4/5] 启动所有服务..."
-docker compose up -d
+$DC up -d
 if [ $? -ne 0 ]; then
     echo "错误: 启动失败！"
     exit 1
@@ -48,7 +61,7 @@ echo ""
 echo "================================"
 echo "容器状态:"
 echo "================================"
-docker compose ps
+$DC ps
 
 echo ""
 echo "================================"
@@ -68,7 +81,7 @@ if [ "$fix" = "y" ] || [ "$fix" = "Y" ]; then
     echo ""
 
     echo "正在修复历史游戏..."
-    docker compose exec backend python /app/fix_old_games.py
+    $DC exec backend python /app/fix_old_games.py
 
     if [ $? -eq 0 ]; then
         echo ""
@@ -87,7 +100,7 @@ echo "  前端: http://localhost:3000"
 echo "  后端API: http://localhost:8000/docs"
 echo ""
 echo "查看后端日志:"
-echo "  docker compose logs backend --tail=50 -f"
+echo "  $DC logs backend --tail=50 -f"
 echo ""
 echo "测试步骤:"
 echo "  1. 访问 http://localhost:3000"
