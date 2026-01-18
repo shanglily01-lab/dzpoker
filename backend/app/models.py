@@ -69,7 +69,7 @@ class Hand(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     game_id = Column(Integer, ForeignKey("games.id"))
-    player_id = Column(Integer, ForeignKey("players.id"))
+    player_id = Column(Integer)  # 虚拟玩家ID（不关联players表）
     position = Column(Integer)  # 座位位置 0-9
     hole_cards = Column(String(10))  # 底牌, 如 "AhKd"
     final_hand = Column(String(30))  # 最终牌型
@@ -79,7 +79,6 @@ class Hand(Base):
 
     # 关联
     game = relationship("Game", back_populates="hands")
-    player = relationship("Player", back_populates="hands")
     actions = relationship("Action", back_populates="hand")
 
 
@@ -89,7 +88,7 @@ class Action(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     hand_id = Column(Integer, ForeignKey("hands.id"))
-    player_id = Column(Integer, ForeignKey("players.id"))
+    player_id = Column(Integer)  # 虚拟玩家ID（不关联players表）
     street = Column(String(10))  # preflop, flop, turn, river
     action_type = Column(String(10))  # fold, call, raise, check, all_in
     amount = Column(Float, default=0.0)
