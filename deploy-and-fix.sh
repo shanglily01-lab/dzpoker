@@ -36,7 +36,7 @@ echo ""
 
 # 3. 重新构建后端
 echo "[3/5] 重新构建后端容器..."
-$DC build --no-cache backend
+$DC build --no-cache api
 if [ $? -ne 0 ]; then
     echo "错误: 后端构建失败！"
     exit 1
@@ -81,7 +81,7 @@ if [ "$fix" = "y" ] || [ "$fix" = "Y" ]; then
     echo ""
 
     echo "正在修复历史游戏..."
-    $DC exec backend python /app/fix_old_games.py
+    $DC exec api python /app/fix_old_games.py
 
     if [ $? -eq 0 ]; then
         echo ""
@@ -100,7 +100,7 @@ echo "  前端: http://localhost:3000"
 echo "  后端API: http://localhost:8000/docs"
 echo ""
 echo "查看后端日志:"
-echo "  $DC logs backend --tail=50 -f"
+echo "  $DC logs api --tail=50 -f"
 echo ""
 echo "测试步骤:"
 echo "  1. 访问 http://localhost:3000"
