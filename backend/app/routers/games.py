@@ -118,7 +118,8 @@ async def list_games(limit: int = 10, state: str = None):
             "state": game.state.value,
             "pot": game.pot,
             "current_bet": game.current_bet,
-            "blind": game.blind,
+            "small_blind": game.small_blind,
+            "big_blind": game.big_blind,
             "players": [
                 {
                     "player_id": p.player_id,
