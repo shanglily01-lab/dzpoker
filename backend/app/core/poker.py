@@ -112,6 +112,7 @@ class PokerGame:
     dealer_idx: int = 0
     state: GameState = GameState.WAITING
     last_winners: List[dict] = field(default_factory=list)  # 存储上一手牌的获胜者信息
+    action_history: List[dict] = field(default_factory=list)  # 记录所有玩家动作
 
     def add_player(self, player_id: int, chips: float = 1000) -> PlayerState:
         """添加玩家"""
@@ -150,6 +151,7 @@ class PokerGame:
         self.pot = 0
         self.current_bet = 0
         self.last_winners = []  # 清空上一手牌的获胜者信息
+        self.action_history = []  # 清空动作历史
 
         # 重置玩家状态
         for player in self.players:
@@ -181,6 +183,16 @@ class PokerGame:
         sb_player.total_bet = sb_amount
         self.pot += sb_amount
 
+        # 记录小盲注动作
+        self.action_history.append({
+            "player_id": sb_player.player_id,
+            "position": sb_player.position,
+            "street": "preflop",
+            "action": "small_blind",
+            "amount": sb_amount,
+            "pot_after": self.pot
+        })
+
         # 大盲注
         bb_player = self.players[bb_idx]
         bb_amount = min(self.big_blind, bb_player.chips)
@@ -188,6 +200,16 @@ class PokerGame:
         bb_player.current_bet = bb_amount
         bb_player.total_bet = bb_amount
         self.pot += bb_amount
+
+        # 记录大盲注动作
+        self.action_history.append({
+            "player_id": bb_player.player_id,
+            "position": bb_player.position,
+            "street": "preflop",
+            "action": "big_blind",
+            "amount": bb_amount,
+            "pot_after": self.pot
+        })
 
         self.current_bet = self.big_blind
         # 从大盲注后一位开始行动
@@ -307,6 +329,19 @@ class PokerGame:
                         p.has_acted = False
 
         player.has_acted = True
+
+        # 记录动作到历史
+        action_record = {
+            "player_id": player_id,
+            "position": player.position,
+            "street": self.state.value,
+            "action": action,
+            "amount": result["amount"],
+            "pot_after": self.pot
+        }
+        self.action_history.append(action_record)
+        print(f"[Action] Recorded: {action_record}")
+
         print(f"[Action] Player {player_id} {action} completed, calling _next_player()")
         self._next_player()
         print(f"[Action] _next_player() returned, current_player_idx now: {self.current_player_idx}")

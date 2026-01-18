@@ -250,6 +250,7 @@ class GameService:
         # 保存每个玩家的手牌记录
         saved_hands_count = 0
         skipped_players_count = 0
+        player_hand_ids = {}  # 记录每个玩家的hand_id，用于后续保存action
 
         for player in game.players:
             if not player.hole_cards:
@@ -265,11 +266,8 @@ class GameService:
                 winner_info = next(w for w in winners if w["player_id"] == player.player_id)
                 winnings = winner_info["winnings"]
 
-            # 计算盈亏（获得的筹码 - 投入的筹码）
-            # 注意：player.current_bet 是本轮下注，不是总投入
-            # 这里简化处理，只记录最终的盈亏
-            initial_chips = player.chips - winnings  # 反推初始筹码
-            profit_loss = winnings
+            # 计算盈亏（赢得的筹码 - 总投入）
+            profit_loss = winnings - player.total_bet
 
             # 将底牌转换为字符串格式
             hole_cards_str = "".join([f"{c.rank}{c.suit}" for c in player.hole_cards])
@@ -281,7 +279,7 @@ class GameService:
                 final_hand = winner_info["hand_description"]
 
             # 保存手牌记录
-            await GameService.save_hand(
+            hand_record = await GameService.save_hand(
                 db=db,
                 game_id=game_record.id,
                 player_id=player.player_id,
@@ -292,8 +290,9 @@ class GameService:
                 is_winner=is_winner
             )
 
+            player_hand_ids[player.player_id] = hand_record.id
             saved_hands_count += 1
-            print(f"[GameService] Saved hand for player {player.player_id}")
+            print(f"[GameService] Saved hand for player {player.player_id}, hand_id={hand_record.id}")
 
             # 更新玩家统计
             await GameService.update_player_stats(
@@ -305,6 +304,28 @@ class GameService:
             )
 
         print(f"[GameService] Total hands saved: {saved_hands_count}, skipped: {skipped_players_count}")
+
+        # 保存所有玩家动作
+        saved_actions_count = 0
+        if hasattr(game, 'action_history') and game.action_history:
+            print(f"[GameService] Saving {len(game.action_history)} actions...")
+            for action in game.action_history:
+                player_id = action["player_id"]
+                # 只保存已记录手牌的玩家的动作
+                if player_id in player_hand_ids:
+                    await GameService.save_action(
+                        db=db,
+                        hand_id=player_hand_ids[player_id],
+                        player_id=player_id,
+                        street=action["street"],
+                        action_type=action["action"],
+                        amount=action["amount"],
+                        pot_size=action["pot_after"]
+                    )
+                    saved_actions_count += 1
+            print(f"[GameService] Total actions saved: {saved_actions_count}")
+        else:
+            print(f"[GameService] No action history to save")
 
         # 更新游戏状态为已完成
         winner_id = winners[0]["player_id"] if len(winners) == 1 else None
