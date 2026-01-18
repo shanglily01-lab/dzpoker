@@ -12,7 +12,7 @@ from ..core.poker import PokerGame, Card
 from ..ai.decision_maker import ai_decision_maker
 from .games import games
 
-router = APIRouter(prefix="/simulation", tags=["simulation"])
+router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
 
 @router.post("/{game_id}/auto-play")
