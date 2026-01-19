@@ -190,6 +190,42 @@
 
         <h3 style="margin-top: 20px">手牌记录</h3>
         <el-table :data="gameDetail.hands" style="width: 100%">
+          <el-table-column type="expand">
+            <template #default="{ row }">
+              <div style="padding: 0 20px">
+                <h4>动作记录</h4>
+                <el-table :data="row.actions" size="small" style="width: 100%">
+                  <el-table-column prop="street" label="阶段" width="100">
+                    <template #default="{ row: action }">
+                      <el-tag size="small">{{ formatStreet(action.street) }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="action_type" label="动作" width="120">
+                    <template #default="{ row: action }">
+                      <el-tag :type="getActionType(action.action_type)" size="small">
+                        {{ formatAction(action.action_type) }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="amount" label="金额" width="100">
+                    <template #default="{ row: action }">
+                      {{ formatNumber(action.amount) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="pot_size" label="底池" width="100">
+                    <template #default="{ row: action }">
+                      {{ formatNumber(action.pot_size) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="created_at" label="时间" width="180">
+                    <template #default="{ row: action }">
+                      {{ formatTime(action.created_at) }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="player_id" label="玩家" width="80">
             <template #default="{ row }">P{{ row.player_id }}</template>
           </el-table-column>
@@ -348,6 +384,45 @@ const getWinRateClass = (rate) => {
   if (rate >= 30) return 'high'
   if (rate >= 20) return 'medium'
   return 'low'
+}
+
+// 格式化阶段
+const formatStreet = (street) => {
+  const map = {
+    'preflop': '翻牌前',
+    'flop': '翻牌',
+    'turn': '转牌',
+    'river': '河牌'
+  }
+  return map[street] || street
+}
+
+// 格式化动作
+const formatAction = (action) => {
+  const map = {
+    'small_blind': '小盲注',
+    'big_blind': '大盲注',
+    'fold': '弃牌',
+    'check': '过牌',
+    'call': '跟注',
+    'raise': '加注',
+    'all_in': 'All-in'
+  }
+  return map[action] || action
+}
+
+// 获取动作类型
+const getActionType = (action) => {
+  const map = {
+    'small_blind': 'info',
+    'big_blind': 'info',
+    'fold': 'info',
+    'check': 'success',
+    'call': 'warning',
+    'raise': 'danger',
+    'all_in': 'danger'
+  }
+  return map[action] || 'info'
 }
 
 // 初始化
