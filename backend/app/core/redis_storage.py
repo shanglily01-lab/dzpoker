@@ -49,7 +49,9 @@ class RedisGameStorage:
                 # 使用内存存储
                 self._memory_storage[game_id] = game
         except Exception as e:
+            import traceback
             print(f"⚠️  Redis 保存失败，使用内存备份: {e}")
+            print(traceback.format_exc())
             self._memory_storage[game_id] = game
 
     def load_game(self, game_id: str) -> Optional[PokerGame]:
@@ -69,13 +71,25 @@ class RedisGameStorage:
                 # 从 Redis 加载
                 data = self.redis_client.get(key)
                 if data:
-                    return pickle.loads(data)
+                    game = pickle.loads(data)
+                    # 确保 action_history 存在
+                    if not hasattr(game, 'action_history'):
+                        game.action_history = []
+                    return game
 
             # 从内存加载
-            return self._memory_storage.get(game_id)
+            game = self._memory_storage.get(game_id)
+            if game and not hasattr(game, 'action_history'):
+                game.action_history = []
+            return game
         except Exception as e:
+            import traceback
             print(f"⚠️  Redis 加载失败，尝试内存: {e}")
-            return self._memory_storage.get(game_id)
+            print(traceback.format_exc())
+            game = self._memory_storage.get(game_id)
+            if game and not hasattr(game, 'action_history'):
+                game.action_history = []
+            return game
 
     def delete_game(self, game_id: str):
         """
