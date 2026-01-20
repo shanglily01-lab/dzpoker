@@ -10,7 +10,7 @@ import asyncio
 
 from ..core.poker import PokerGame, Card
 from ..ai.decision_maker import ai_decision_maker
-from .games import games
+from ..core.redis_storage import game_storage
 
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
@@ -27,10 +27,9 @@ async def auto_play_game(game_id: str, speed: float = 1.0):
     Returns:
         完整的游戏记录
     """
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     # 游戏记录
     game_log = {
@@ -232,10 +231,9 @@ async def single_ai_action(game_id: str):
 
     用于逐步控制游戏进程
     """
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
     current_player = game.get_current_player()
 
     if not current_player:
