@@ -16,8 +16,11 @@ cd /path/to/dzpoker && git pull
 # 2. 快速部署（10秒）
 chmod +x quick-update.sh && ./quick-update.sh
 
-# 3. 验证部署（可选）
+# 3. 验证部署
 chmod +x verify-backend.sh && ./verify-backend.sh
+
+# 4. 如果有错误，查看详细日志
+chmod +x check-error.sh && ./check-error.sh
 ```
 
 ---
