@@ -10,14 +10,12 @@ from ..schemas import (
 )
 from ..core.poker import PokerGame, GameState
 from ..core.database import get_db
+from ..core.redis_storage import game_storage
 from ..services.game_service import GameService
 from ..ai.smart_dealer import smart_dealer
 from ..ai.decision_maker import ai_decision_maker
 
 router = APIRouter(prefix="/api/games", tags=["games"])
-
-# 游戏存储 (生产环境应使用Redis)
-games: Dict[str, PokerGame] = {}
 
 # WebSocket连接管理
 class ConnectionManager:
@@ -46,6 +44,11 @@ class ConnectionManager:
 ws_manager = ConnectionManager()
 
 
+def save_game_state(game_id: str, game: PokerGame):
+    """保存游戏状态到 Redis"""
+    game_storage.save_game(game_id, game)
+
+
 @router.post("", response_model=GameResponse)
 async def create_game(request: CreateGameRequest):
     """创建新游戏"""
@@ -61,7 +64,8 @@ async def create_game(request: CreateGameRequest):
     for i in range(request.num_players):
         game.add_player(player_id=i + 1, chips=1000)
 
-    games[game_id] = game
+    # 保存到 Redis
+    game_storage.save_game(game_id, game)
 
     return GameResponse(
         game_id=game_id,
@@ -76,16 +80,25 @@ async def create_game(request: CreateGameRequest):
 @router.get("/stats")
 async def get_game_stats():
     """获取游戏统计数据"""
-    total_games = len(games)
-    active_games = sum(1 for g in games.values() if g.state not in [GameState.WAITING, GameState.FINISHED])
-    finished_games = sum(1 for g in games.values() if g.state == GameState.FINISHED)
+    game_ids = game_storage.get_all_game_ids()
+    total_games = len(game_ids)
 
-    # 统计总玩家数（去重）
+    active_games = 0
+    finished_games = 0
     all_players = set()
     total_hands = 0
     total_pot = 0
 
-    for game in games.values():
+    for game_id in game_ids:
+        game = game_storage.load_game(game_id)
+        if not game:
+            continue
+
+        if game.state not in [GameState.WAITING, GameState.FINISHED]:
+            active_games += 1
+        if game.state == GameState.FINISHED:
+            finished_games += 1
+
         for player in game.players:
             all_players.add(player.player_id)
         if game.state != GameState.WAITING:
@@ -106,8 +119,13 @@ async def get_game_stats():
 async def list_games(limit: int = 10, state: str = None):
     """获取游戏列表"""
     game_list = []
+    game_ids = game_storage.get_all_game_ids()
 
-    for game_id, game in games.items():
+    for game_id in game_ids:
+        game = game_storage.load_game(game_id)
+        if not game:
+            continue
+
         # 状态过滤
         if state and game.state.value != state:
             continue
@@ -145,20 +163,18 @@ async def get_game(game_id: str, include_hole_cards: bool = False):
         game_id: 游戏ID
         include_hole_cards: 是否包含所有玩家底牌（调试用）
     """
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
     return game.get_state(include_hole_cards=include_hole_cards)
 
 
 @router.post("/{game_id}/start")
 async def start_game(game_id: str, db: AsyncSession = Depends(get_db)):
     """开始游戏"""
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     try:
         game.start_hand()
@@ -174,6 +190,9 @@ async def start_game(game_id: str, db: AsyncSession = Depends(get_db)):
         import traceback
         print(f"[Database] Failed to create game record: {str(e)}")
         print(traceback.format_exc())
+
+    # 保存游戏状态
+    save_game_state(game_id, game)
 
     # 广播游戏开始
     await ws_manager.broadcast(game_id, {
@@ -197,10 +216,9 @@ async def deal_hole_cards(game_id: str, smart: bool = False):
         game_id: 游戏ID
         smart: 是否使用智能发牌
     """
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     if game.state != GameState.WAITING:
         raise HTTPException(status_code=400, detail="游戏已经开始")
@@ -240,6 +258,9 @@ async def deal_hole_cards(game_id: str, smart: bool = False):
         "deck_remaining": len(game.deck.cards)
     }
 
+    # 保存游戏状态
+    save_game_state(game_id, game)
+
     # 广播发牌结果
     await ws_manager.broadcast(game_id, {
         "type": "cards_dealt",
@@ -252,10 +273,9 @@ async def deal_hole_cards(game_id: str, smart: bool = False):
 @router.post("/{game_id}/flop")
 async def deal_flop(game_id: str):
     """发翻牌"""
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     try:
         flop = game.deal_flop()
@@ -266,6 +286,9 @@ async def deal_flop(game_id: str):
         "cards": [card.to_dict() for card in flop],
         "street": "flop"
     }
+
+    # 保存游戏状态
+    save_game_state(game_id, game)
 
     await ws_manager.broadcast(game_id, {
         "type": "community_cards",
@@ -278,10 +301,9 @@ async def deal_flop(game_id: str):
 @router.post("/{game_id}/turn")
 async def deal_turn(game_id: str):
     """发转牌"""
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     try:
         turn = game.deal_turn()
@@ -292,6 +314,9 @@ async def deal_turn(game_id: str):
         "card": turn.to_dict(),
         "street": "turn"
     }
+
+    # 保存游戏状态
+    save_game_state(game_id, game)
 
     await ws_manager.broadcast(game_id, {
         "type": "community_cards",
@@ -304,10 +329,9 @@ async def deal_turn(game_id: str):
 @router.post("/{game_id}/river")
 async def deal_river(game_id: str):
     """发河牌"""
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     try:
         river = game.deal_river()
@@ -318,6 +342,9 @@ async def deal_river(game_id: str):
         "card": river.to_dict(),
         "street": "river"
     }
+
+    # 保存游戏状态
+    save_game_state(game_id, game)
 
     await ws_manager.broadcast(game_id, {
         "type": "community_cards",
@@ -330,10 +357,9 @@ async def deal_river(game_id: str):
 @router.post("/{game_id}/action")
 async def player_action(game_id: str, action: PlayerActionRequest):
     """处理玩家动作"""
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     try:
         result = game.player_action(
@@ -351,6 +377,9 @@ async def player_action(game_id: str, action: PlayerActionRequest):
         "game_state": game.get_state()
     }
 
+    # 保存游戏状态
+    save_game_state(game_id, game)
+
     await ws_manager.broadcast(game_id, {
         "type": "player_action",
         "data": response
@@ -362,10 +391,9 @@ async def player_action(game_id: str, action: PlayerActionRequest):
 @router.post("/{game_id}/showdown")
 async def showdown(game_id: str, db: AsyncSession = Depends(get_db)):
     """执行摊牌并确定获胜者"""
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     try:
         result = game.showdown()
@@ -407,10 +435,9 @@ async def finish_game_route(game_id: str, db: AsyncSession = Depends(get_db)):
     """
     结束游戏并保存数据（用于非showdown路径，如所有人弃牌）
     """
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
 
     # 检查游戏是否已结束
     if game.state.value != 'finished':
@@ -473,10 +500,9 @@ async def ai_single_action(game_id: str):
 
     用于前端自动游戏功能
     """
-    if game_id not in games:
+    game = game_storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="游戏不存在")
-
-    game = games[game_id]
     current_player = game.get_current_player()
 
     if not current_player:
@@ -524,6 +550,9 @@ async def ai_single_action(game_id: str):
             "game_state": game.get_state()
         }
 
+        # 保存游戏状态
+        save_game_state(game_id, game)
+
         # 广播AI动作
         await ws_manager.broadcast(game_id, {
             "type": "player_action",
@@ -555,10 +584,11 @@ async def game_websocket(websocket: WebSocket, game_id: str):
                 await websocket.send_json({"type": "pong"})
 
             elif msg_type == "get_state":
-                if game_id in games:
+                game = game_storage.load_game(game_id)
+                if game:
                     await websocket.send_json({
                         "type": "game_state",
-                        "data": games[game_id].get_state()
+                        "data": game.get_state()
                     })
 
     except WebSocketDisconnect:
