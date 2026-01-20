@@ -294,14 +294,16 @@ class GameService:
             saved_hands_count += 1
             print(f"[GameService] Saved hand for player {player.player_id}, hand_id={hand_record.id}")
 
-            # 更新玩家统计
-            await GameService.update_player_stats(
-                db=db,
-                player_id=player.player_id,
-                won=is_winner,
-                profit=profit_loss,
-                played_hand=True
-            )
+            # 更新玩家统计（仅限真实玩家，虚拟玩家ID 1-10跳过）
+            # 虚拟玩家不需要更新统计数据
+            # if player.player_id > 10:  # 假设真实玩家ID > 10
+            #     await GameService.update_player_stats(
+            #         db=db,
+            #         player_id=player.player_id,
+            #         won=is_winner,
+            #         profit=profit_loss,
+            #         played_hand=True
+            #     )
 
         print(f"[GameService] Total hands saved: {saved_hands_count}, skipped: {skipped_players_count}")
 

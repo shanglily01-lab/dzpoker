@@ -416,6 +416,20 @@ async def finish_game_route(game_id: str, db: AsyncSession = Depends(get_db)):
     if game.state.value != 'finished':
         raise HTTPException(status_code=400, detail="游戏尚未结束")
 
+    # 检查数据库中是否已经保存（避免重复保存）
+    from sqlalchemy import select
+    from ..models import Game as GameModel
+    result = await db.execute(
+        select(GameModel).where(GameModel.game_uuid == game_id)
+    )
+    existing_game = result.scalar_one_or_none()
+
+    if existing_game and existing_game.status == "finished":
+        print(f"[Database] Game {game_id} already finished and saved, skipping")
+        # 返回已保存的获胜者信息
+        winners = game.last_winners if hasattr(game, 'last_winners') and game.last_winners else []
+        return {"success": True, "winners": winners, "already_saved": True}
+
     # 获取获胜者信息（已在_advance_state中设置）
     winners = game.last_winners if hasattr(game, 'last_winners') and game.last_winners else []
 
@@ -431,12 +445,14 @@ async def finish_game_route(game_id: str, db: AsyncSession = Depends(get_db)):
                 "hole_cards": [c.to_dict() for c in winner.hole_cards] if winner.hole_cards else []
             }]
 
-    # 打印玩家底牌信息用于调试
+    # 打印调试信息
     print(f"[Database Debug] Game {game_id} - Players hole cards:")
     for player in game.players:
         has_cards = player.hole_cards is not None and len(player.hole_cards) > 0
         cards_str = str([f"{c.rank}{c.suit}" for c in player.hole_cards]) if has_cards else "None"
         print(f"  Player {player.player_id}: has_hole_cards={has_cards}, cards={cards_str}")
+
+    print(f"[Database Debug] Game {game_id} - action_history count: {len(game.action_history) if hasattr(game, 'action_history') else 0}")
 
     # 保存游戏数据到数据库
     try:
