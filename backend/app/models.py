@@ -88,8 +88,8 @@ class Action(Base):
     id = Column(Integer, primary_key=True, index=True)
     hand_id = Column(Integer, ForeignKey("hands.id"))
     player_id = Column(Integer)  # 虚拟玩家ID（不关联players表）
-    street = Column(String(10))  # preflop, flop, turn, river
-    action_type = Column(String(10))  # fold, call, raise, check, all_in
+    street = Column(String(20))  # preflop, flop, turn, river
+    action_type = Column(String(20))  # fold, call, raise, check, all_in, small_blind, big_blind
     amount = Column(Float, default=0.0)
     pot_size = Column(Float, default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
